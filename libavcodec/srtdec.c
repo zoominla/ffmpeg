@@ -86,15 +86,15 @@ static const char *srt_to_ass(AVCodecContext *avctx, char *out, char *out_end,
             if (!line_start)
                 *out++ = *in;
             break;
-        case '{':    /* skip all {\xxx} substrings except for {\an%d}
-                        and all microdvd like styles such as {Y:xxx} */
+        /*case '{':     skip all {\xxx} substrings except for {\an%d}
+                        and all microdvd like styles such as {Y:xxx} 
             an += sscanf(in, "{\\an%*1u}%c", &c) == 1;
             if ((an != 1 && sscanf(in, "{\\%*[^}]}%n%c", &len, &c) > 0) ||
                 sscanf(in, "{%*1[CcFfoPSsYy]:%*[^}]}%n%c", &len, &c) > 0) {
                 in += len - 1;
             } else
                 *out++ = *in;
-            break;
+            break;  */
         case '<':
             tag_close = in[1] == '/';
             if (sscanf(in+tag_close+1, "%127[^>]>%n%c", buffer, &len,&c) >= 2) {

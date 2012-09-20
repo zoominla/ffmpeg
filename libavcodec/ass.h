@@ -28,8 +28,8 @@
  * @name Default values for ASS style
  * @{
  */
-#define ASS_DEFAULT_FONT        "Arial"
-#define ASS_DEFAULT_FONT_SIZE   16
+#define ASS_DEFAULT_FONT        "Microsoft YaHei"
+#define ASS_DEFAULT_FONT_SIZE   24
 #define ASS_DEFAULT_COLOR       0xffffff
 #define ASS_DEFAULT_BACK_COLOR  0
 #define ASS_DEFAULT_BOLD        0

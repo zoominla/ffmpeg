@@ -137,6 +137,7 @@ static void apply_delogo(uint8_t *dst, int dst_linesize,
 typedef struct {
     const AVClass *class;
     int x, y, w, h, band, show;
+	float startSec, endSec;
 }  DelogoContext;
 
 #define OFFSET(x) offsetof(DelogoContext, x)
@@ -150,7 +151,9 @@ static const AVOption delogo_options[]= {
     {"band", "set delogo area band size", OFFSET(band), AV_OPT_TYPE_INT, {.i64 =  4}, -1, INT_MAX, FLAGS},
     {"t",    "set delogo area band size", OFFSET(band), AV_OPT_TYPE_INT, {.i64 =  4}, -1, INT_MAX, FLAGS},
     {"show", "show delogo area",          OFFSET(show), AV_OPT_TYPE_INT, {.i64 =  0},  0,       1, FLAGS},
-    {NULL},
+    {"start", "set start time",           OFFSET(startSec), AV_OPT_TYPE_DOUBLE, {.dbl =  -1.0}, -1.0, INT_MAX, FLAGS},
+	{"end",  "set end time", 		      OFFSET(endSec), AV_OPT_TYPE_DOUBLE, {.dbl =	-1.0}, -1.0, INT_MAX, FLAGS},
+	{NULL},
 };
 
 AVFILTER_DEFINE_CLASS(delogo);
@@ -177,9 +180,9 @@ static av_cold int init(AVFilterContext *ctx, const char *args)
     av_opt_set_defaults(delogo);
 
     if (args)
-        ret = sscanf(args, "%d:%d:%d:%d:%d",
-                     &delogo->x, &delogo->y, &delogo->w, &delogo->h, &delogo->band);
-    if (ret == 5) {
+        ret = sscanf(args, "%d:%d:%d:%d:%d:%f:%f",&delogo->x, &delogo->y, 
+                     &delogo->w, &delogo->h, &delogo->band, &delogo->startSec, &delogo->endSec);
+    if (ret == 7) {
         if (delogo->band < 0)
             delogo->show = 1;
     } else if ((ret = (av_set_options_string(delogo, args, "=", ":"))) < 0)
@@ -198,8 +201,8 @@ static av_cold int init(AVFilterContext *ctx, const char *args)
     if (delogo->show)
         delogo->band = 4;
 
-    av_log(ctx, AV_LOG_VERBOSE, "x:%d y:%d, w:%d h:%d band:%d show:%d\n",
-           delogo->x, delogo->y, delogo->w, delogo->h, delogo->band, delogo->show);
+    av_log(ctx, AV_LOG_VERBOSE, "x:%d y:%d, w:%d h:%d band:%d show:%d start:%f end:%f\n",
+           delogo->x, delogo->y, delogo->w, delogo->h, delogo->band, delogo->show, delogo->startSec, delogo->endSec);
 
     delogo->w += delogo->band*2;
     delogo->h += delogo->band*2;
@@ -226,6 +229,18 @@ static int end_frame(AVFilterLink *inlink)
     int plane;
     int ret;
 
+    int64_t curPts = inpicref->pts;
+	if(curPts != AV_NOPTS_VALUE) {
+		double curTime = curPts * av_q2d(inlink->time_base);
+		av_log(delogo, AV_LOG_VERBOSE, "=======pts:%"PRId64"===CurTime:%1.3f\n", curPts, curTime);
+		if( (delogo->startSec < -0.1f && delogo->endSec > -0.1f) ||
+			(delogo->startSec > -0.1f && curTime < delogo->startSec) ||
+			(delogo->endSec > -0.1f && curTime > delogo->endSec)) {
+			/* No need to delogo beyond the time window*/
+			goto delogo_final;
+		}
+	}
+	
     for (plane = 0; plane < 4 && inpicref->data[plane]; plane++) {
         int hsub = plane == 1 || plane == 2 ? hsub0 : 0;
         int vsub = plane == 1 || plane == 2 ? vsub0 : 0;
@@ -239,6 +254,7 @@ static int end_frame(AVFilterLink *inlink)
                      delogo->show, direct);
     }
 
+delogo_final:
     if ((ret = ff_draw_slice(outlink, 0, inlink->h, 1)) < 0 ||
         (ret = ff_end_frame(outlink)) < 0)
         return ret;
