@@ -39,6 +39,7 @@
 #define MODE_3G2  0x10
 #define MODE_IPOD 0x20
 #define MODE_ISM  0x40
+#define MODE_F4V  0x80
 
 typedef struct MOVIentry {
     uint64_t     pos;
@@ -151,7 +152,7 @@ typedef struct MOVMuxContext {
 
     int flags;
     int rtp_flags;
-    int reserved_moov_size;
+    int reserved_moov_size; ///< 0 for disabled, -1 for automatic, size otherwise
     int64_t reserved_moov_pos;
 
     int iods_skip;
@@ -173,6 +174,7 @@ typedef struct MOVMuxContext {
 #define FF_MOV_FLAG_SEPARATE_MOOF 16
 #define FF_MOV_FLAG_FRAG_CUSTOM 32
 #define FF_MOV_FLAG_ISML 64
+#define FF_MOV_FLAG_FASTSTART 128
 
 int ff_mov_write_packet(AVFormatContext *s, AVPacket *pkt);
 

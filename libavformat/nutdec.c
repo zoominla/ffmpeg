@@ -77,8 +77,8 @@ static uint64_t get_fourcc(AVIOContext *bc)
 }
 
 #ifdef TRACE
-static inline uint64_t get_v_trace(AVIOContext *bc, char *file,
-                                   char *func, int line)
+static inline uint64_t get_v_trace(AVIOContext *bc, const char *file,
+                                   const char *func, int line)
 {
     uint64_t v = ffio_read_varlen(bc);
 
@@ -87,8 +87,8 @@ static inline uint64_t get_v_trace(AVIOContext *bc, char *file,
     return v;
 }
 
-static inline int64_t get_s_trace(AVIOContext *bc, char *file,
-                                  char *func, int line)
+static inline int64_t get_s_trace(AVIOContext *bc, const char *file,
+                                  const char *func, int line)
 {
     int64_t v = get_s(bc);
 
@@ -527,7 +527,8 @@ static int decode_syncpoint(NUTContext *nut, int64_t *ts, int64_t *back_ptr)
 {
     AVFormatContext *s = nut->avf;
     AVIOContext *bc    = s->pb;
-    int64_t end, tmp;
+    int64_t end;
+    uint64_t tmp;
 
     nut->last_syncpoint_pos = avio_tell(bc) - 8;
 
@@ -547,8 +548,8 @@ static int decode_syncpoint(NUTContext *nut, int64_t *ts, int64_t *back_ptr)
         return -1;
     }
 
-    *ts = tmp / s->nb_streams *
-          av_q2d(nut->time_base[tmp % s->nb_streams]) * AV_TIME_BASE;
+    *ts = tmp / nut->time_base_count *
+          av_q2d(nut->time_base[tmp % nut->time_base_count]) * AV_TIME_BASE;
     ff_nut_add_sp(nut, nut->last_syncpoint_pos, *back_ptr, *ts);
 
     return 0;

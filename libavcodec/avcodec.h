@@ -448,6 +448,7 @@ enum AVCodecID {
     AV_CODEC_ID_REALTEXT   = MKBETAG('R','T','X','T'),
     AV_CODEC_ID_SUBVIEWER  = MKBETAG('S','u','b','V'),
     AV_CODEC_ID_SUBRIP     = MKBETAG('S','R','i','p'),
+    AV_CODEC_ID_WEBVTT     = MKBETAG('W','V','T','T'),
 
     /* other specific kind of codecs (generally used for attachments) */
     AV_CODEC_ID_FIRST_UNKNOWN = 0x18000,           ///< A dummy ID pointing at the start of various fake codecs.
@@ -3508,7 +3509,7 @@ int avcodec_copy_context(AVCodecContext *dest, const AVCodecContext *src);
 
 /**
  * Allocate an AVFrame and set its fields to default values.  The resulting
- * struct can be deallocated by simply calling av_free().
+ * struct must be freed using avcodec_free_frame().
  *
  * @return An AVFrame filled with default values or NULL on failure.
  * @see avcodec_get_frame_defaults
@@ -3518,9 +3519,21 @@ AVFrame *avcodec_alloc_frame(void);
 /**
  * Set the fields of the given AVFrame to default values.
  *
- * @param pic The AVFrame of which the fields should be set to default values.
+ * @param frame The AVFrame of which the fields should be set to default values.
  */
-void avcodec_get_frame_defaults(AVFrame *pic);
+void avcodec_get_frame_defaults(AVFrame *frame);
+
+/**
+ * Free the frame and any dynamically allocated objects in it,
+ * e.g. extended_data.
+ *
+ * @param frame frame to be freed. The pointer will be set to NULL.
+ *
+ * @warning this function does NOT free the data buffers themselves
+ * (it does not know how, since they might have been allocated with
+ *  a custom get_buffer()).
+ */
+void avcodec_free_frame(AVFrame **frame);
 
 #if FF_API_AVCODEC_OPEN
 /**
@@ -3667,6 +3680,13 @@ int av_grow_packet(AVPacket *pkt, int grow_by);
  * packet is allocated if it was not really allocated.
  */
 int av_dup_packet(AVPacket *pkt);
+
+/**
+ * Copy packet, including contents
+ *
+ * @return 0 on success, negative AVERROR on fail
+ */
+int av_copy_packet(AVPacket *dst, AVPacket *src);
 
 /**
  * Free a packet.

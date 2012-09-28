@@ -95,7 +95,7 @@ Configuration options:
   --disable-static         do not build static libraries [no]
   --enable-shared          build shared libraries [no]
   --enable-small           optimize for size instead of speed
-  --enable-runtime-cpudetect detect cpu capabilities at runtime (bigger binary)
+  --disable-runtime-cpudetect disable detecting cpu capabilities at runtime (smaller binary)
   --enable-gray            enable full grayscale support (slower color)
   --disable-swscale-alpha  disable alpha channel support in swscale
 
@@ -1265,6 +1265,7 @@ HAVE_LIST="
     asm_types_h
     attribute_may_alias
     attribute_packed
+    broken_snprintf
     cbrtf
     clock_gettime
     closesocket
@@ -1793,6 +1794,7 @@ asf_stream_muxer_select="asf_muxer"
 avisynth_demuxer_deps="avisynth"
 dirac_demuxer_select="dirac_parser"
 eac3_demuxer_select="ac3_parser"
+f4v_muxer_select="mov_muxer"
 flac_demuxer_select="flac_parser"
 ipod_muxer_select="mov_muxer"
 libnut_demuxer_deps="libnut"
@@ -1915,7 +1917,6 @@ pan_filter_deps="swresample"
 removelogo_filter_deps="avcodec avformat swscale"
 scale_filter_deps="swscale"
 smartblur_filter_deps="gpl swscale"
-select_filter_deps="avcodec"
 showspectrum_filter_deps="avcodec"
 super2xsai_filter_deps="gpl"
 tinterlace_filter_deps="gpl"
@@ -2060,6 +2061,7 @@ enable debug
 enable doc
 enable network
 enable optimizations
+enable runtime_cpudetect
 enable safe_bitstream_reader
 enable static
 enable swscale_alpha
@@ -2547,7 +2549,7 @@ probe_cc(){
         _depflags='-MMD'
         _cflags_speed='-O3'
         _cflags_size='-Os'
-    elif $_cc -version 2>/dev/null | grep -q TMS470; then
+    elif $_cc -version 2>/dev/null | grep -Eq 'TMS470|TI ARM'; then
         _type=tms470
         _ident=$($_cc -version | head -n1 | tr -s ' ')
         _flags='--gcc --abi=eabi -me'
@@ -3193,10 +3195,16 @@ elif check_header _mingw.h; then
         "defined (__MINGW64_VERSION_MAJOR) || (__MINGW32_MAJOR_VERSION > 3) || \
             (__MINGW32_MAJOR_VERSION == 3 && __MINGW32_MINOR_VERSION >= 15)" ||
         die "ERROR: MinGW runtime version must be >= 3.15."
+    if check_cpp_condition _mingw.h "defined(__MINGW64_VERSION_MAJOR) && \
+            __MINGW64_VERSION_MAJOR < 3"; then
+        enable broken_snprintf
+        add_cflags "-include $source_path/compat/msvcrt/snprintf.h"
+    fi
 elif check_cpp_condition newlib.h "defined _NEWLIB_VERSION"; then
     libc_type=newlib
 elif check_func_headers stdlib.h _get_doserrno; then
     libc_type=msvcrt
+    enable broken_snprintf
     add_cflags -Dstrtod=avpriv_strtod
     add_cflags -Dsnprintf=avpriv_snprintf   \
                -D_snprintf=avpriv_snprintf  \
@@ -3557,7 +3565,7 @@ disabled  zlib || check_lib   zlib.h      zlibVersion -lz   || disable  zlib
 disabled bzlib || check_lib2 bzlib.h BZ2_bzlibVersion -lbz2 || disable bzlib
 
 # check for VDA header
-if ! disabled vda; then
+if ! disabled vda && ! enabled ppc; then
     if check_header VideoDecodeAcceleration/VDADecoder.h; then
         enable vda
         add_extralibs -framework CoreFoundation -framework VideoDecodeAcceleration -framework QuartzCore
