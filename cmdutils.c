@@ -126,7 +126,7 @@ double parse_number_or_die(const char *context, const char *numstr, int type,
     else
         return d;
     av_log(NULL, AV_LOG_FATAL, error, context, numstr, min, max);
-    exit_program(1);
+    exit(1);
     return 0;
 }
 
@@ -137,7 +137,7 @@ int64_t parse_time_or_die(const char *context, const char *timestr,
     if (av_parse_time(&us, timestr, is_duration) < 0) {
         av_log(NULL, AV_LOG_FATAL, "Invalid %s specification for %s: %s\n",
                is_duration ? "duration" : "date", context, timestr);
-        exit_program(1);
+        exit(1);
     }
     return us;
 }
@@ -325,7 +325,7 @@ int parse_option(void *optctx, const char *opt, const char *arg,
         }
     }
     if (po->flags & OPT_EXIT)
-        exit_program(0);
+        exit(0);
     return !!(po->flags & HAS_ARG);
 }
 
@@ -351,7 +351,7 @@ void parse_options(void *optctx, int argc, char **argv, const OptionDef *options
             opt++;
 
             if ((ret = parse_option(optctx, opt, argv[optindex], options)) < 0)
-                exit_program(1);
+                exit(1);
             optindex += ret;
         } else {
             if (parse_arg_function)
@@ -380,7 +380,7 @@ int locate_option(int argc, char **argv, const OptionDef *options,
              (po->name && !strcmp(optname, po->name)))
             return i;
 
-        if (!po || po->flags & HAS_ARG)
+        if (po->flags & HAS_ARG)
             i++;
     }
     return 0;
@@ -511,7 +511,7 @@ int opt_loglevel(void *optctx, const char *opt, const char *arg)
                "Possible levels are numbers or:\n", arg);
         for (i = 0; i < FF_ARRAY_ELEMS(log_levels); i++)
             av_log(NULL, AV_LOG_FATAL, "\"%s\"\n", log_levels[i].name);
-        exit_program(1);
+        exit(1);
     }
     av_log_set_level(level);
     return 0;
@@ -557,7 +557,7 @@ int opt_max_alloc(void *optctx, const char *opt, const char *arg)
     max = strtol(arg, &tail, 10);
     if (*tail) {
         av_log(NULL, AV_LOG_FATAL, "Invalid max_alloc \"%s\".\n", arg);
-        exit_program(1);
+        exit(1);
     }
     av_max_alloc(max);
     return 0;
@@ -851,8 +851,8 @@ static void print_codec(const AVCodec *c)
         }
         printf("\n");
     }
-    PRINT_CODEC_SUPPORTED(c, pix_fmts, enum PixelFormat, "pixel formats",
-                          PIX_FMT_NONE, GET_PIX_FMT_NAME);
+    PRINT_CODEC_SUPPORTED(c, pix_fmts, enum AVPixelFormat, "pixel formats",
+                          AV_PIX_FMT_NONE, GET_PIX_FMT_NAME);
     PRINT_CODEC_SUPPORTED(c, supported_samplerates, int, "sample rates", 0,
                           GET_SAMPLE_RATE_NAME);
     PRINT_CODEC_SUPPORTED(c, sample_fmts, enum AVSampleFormat, "sample formats",
@@ -909,7 +909,7 @@ static unsigned get_codecs_sorted(const AVCodecDescriptor ***rcodecs)
         nb_codecs++;
     if (!(codecs = av_calloc(nb_codecs, sizeof(*codecs)))) {
         av_log(0, AV_LOG_ERROR, "Out of memory\n");
-        exit_program(1);
+        exit(1);
     }
     desc = NULL;
     while ((desc = avcodec_descriptor_next(desc)))
@@ -1094,7 +1094,7 @@ int show_filters(void *optctx, const char *opt, const char *arg)
 
 int show_pix_fmts(void *optctx, const char *opt, const char *arg)
 {
-    enum PixelFormat pix_fmt;
+    const AVPixFmtDescriptor *pix_desc = NULL;
 
     printf("Pixel formats:\n"
            "I.... = Supported Input  format for conversion\n"
@@ -1110,8 +1110,8 @@ int show_pix_fmts(void *optctx, const char *opt, const char *arg)
 #   define sws_isSupportedOutput(x) 0
 #endif
 
-    for (pix_fmt = 0; pix_fmt < PIX_FMT_NB; pix_fmt++) {
-        const AVPixFmtDescriptor *pix_desc = &av_pix_fmt_descriptors[pix_fmt];
+    while ((pix_desc = av_pix_fmt_desc_next(pix_desc))) {
+        enum AVPixelFormat pix_fmt = av_pix_fmt_desc_get_id(pix_desc);
         if(!pix_desc->name)
             continue;
         printf("%c%c%c%c%c %-16s       %d            %2d\n",
@@ -1303,6 +1303,10 @@ int cmdutils_read_file(const char *filename, char **bufptr, size_t *size)
     fseek(f, 0, SEEK_END);
     *size = ftell(f);
     fseek(f, 0, SEEK_SET);
+    if (*size == (size_t)-1) {
+        av_log(NULL, AV_LOG_ERROR, "IO error: %s\n", strerror(errno));
+        return AVERROR(errno);
+    }
     *bufptr = av_malloc(*size + 1);
     if (!*bufptr) {
         av_log(NULL, AV_LOG_ERROR, "Could not allocate file buffer\n");
@@ -1320,7 +1324,7 @@ int cmdutils_read_file(const char *filename, char **bufptr, size_t *size)
             ret = AVERROR_EOF;
     } else {
         ret = 0;
-        (*bufptr)[*size++] = '\0';
+        (*bufptr)[(*size)++] = '\0';
     }
 
     fclose(f);
@@ -1467,13 +1471,13 @@ void *grow_array(void *array, int elem_size, int *size, int new_size)
 {
     if (new_size >= INT_MAX / elem_size) {
         av_log(NULL, AV_LOG_ERROR, "Array too big.\n");
-        exit_program(1);
+        exit(1);
     }
     if (*size < new_size) {
         uint8_t *tmp = av_realloc(array, new_size*elem_size);
         if (!tmp) {
             av_log(NULL, AV_LOG_ERROR, "Could not alloc buffer.\n");
-            exit_program(1);
+            exit(1);
         }
         memset(tmp + *size*elem_size, 0, (new_size-*size) * elem_size);
         *size = new_size;
@@ -1484,13 +1488,19 @@ void *grow_array(void *array, int elem_size, int *size, int new_size)
 
 static int alloc_buffer(FrameBuffer **pool, AVCodecContext *s, FrameBuffer **pbuf)
 {
-    FrameBuffer  *buf = av_mallocz(sizeof(*buf));
+    const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(s->pix_fmt);
+    FrameBuffer *buf;
     int i, ret;
-    const int pixel_size = av_pix_fmt_descriptors[s->pix_fmt].comp[0].step_minus1+1;
+    int pixel_size;
     int h_chroma_shift, v_chroma_shift;
     int edge = 32; // XXX should be avcodec_get_edge_width(), but that fails on svq1
     int w = s->width, h = s->height;
 
+    if (!desc)
+        return AVERROR(EINVAL);
+    pixel_size = desc->comp[0].step_minus1 + 1;
+
+    buf = av_mallocz(sizeof(*buf));
     if (!buf)
         return AVERROR(ENOMEM);
 

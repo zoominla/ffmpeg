@@ -13,7 +13,9 @@ OBJS = allformats.o         \
        cutils.o             \
        id3v1.o              \
        id3v2.o              \
+       log2_tab.o           \
        metadata.o           \
+       mux.o                \
        options.o            \
        os_support.o         \
        riff.o               \
@@ -79,6 +81,7 @@ OBJS-$(CONFIG_DIRAC_MUXER)               += rawenc.o
 OBJS-$(CONFIG_DNXHD_DEMUXER)             += dnxhddec.o rawdec.o
 OBJS-$(CONFIG_DNXHD_MUXER)               += rawenc.o
 OBJS-$(CONFIG_DSICIN_DEMUXER)            += dsicin.o
+OBJS-$(CONFIG_DTSHD_DEMUXER)             += dtshddec.o
 OBJS-$(CONFIG_DTS_DEMUXER)               += dtsdec.o rawdec.o
 OBJS-$(CONFIG_DTS_MUXER)                 += rawenc.o
 OBJS-$(CONFIG_DV_DEMUXER)                += dv.o
@@ -151,8 +154,8 @@ OBJS-$(CONFIG_LOAS_DEMUXER)              += loasdec.o
 OBJS-$(CONFIG_LXF_DEMUXER)               += lxfdec.o
 OBJS-$(CONFIG_M4V_DEMUXER)               += m4vdec.o rawdec.o
 OBJS-$(CONFIG_M4V_MUXER)                 += rawenc.o
-OBJS-$(CONFIG_MATROSKA_DEMUXER)          += matroskadec.o matroska.o \
-                                            isom.o rmdec.o rm.o
+OBJS-$(CONFIG_MATROSKA_DEMUXER)          += matroskadec.o matroska.o  \
+                                            isom.o rmsipr.o
 OBJS-$(CONFIG_MATROSKA_MUXER)            += matroskaenc.o matroska.o \
                                             isom.o avc.o \
                                             flacenc_header.o avlanguage.o
@@ -264,7 +267,7 @@ OBJS-$(CONFIG_RAWVIDEO_DEMUXER)          += rawvideodec.o rawdec.o
 OBJS-$(CONFIG_RAWVIDEO_MUXER)            += rawenc.o
 OBJS-$(CONFIG_REALTEXT_DEMUXER)          += realtextdec.o
 OBJS-$(CONFIG_RL2_DEMUXER)               += rl2.o
-OBJS-$(CONFIG_RM_DEMUXER)                += rmdec.o rm.o
+OBJS-$(CONFIG_RM_DEMUXER)                += rmdec.o rm.o rmsipr.o
 OBJS-$(CONFIG_RM_MUXER)                  += rmenc.o rm.o
 OBJS-$(CONFIG_ROQ_DEMUXER)               += idroqdec.o
 OBJS-$(CONFIG_ROQ_MUXER)                 += idroqenc.o rawenc.o
@@ -332,6 +335,7 @@ OBJS-$(CONFIG_STR_DEMUXER)               += psxstr.o
 OBJS-$(CONFIG_SUBVIEWER_DEMUXER)         += subviewerdec.o
 OBJS-$(CONFIG_SWF_DEMUXER)               += swfdec.o swf.o
 OBJS-$(CONFIG_SWF_MUXER)                 += swfenc.o swf.o
+OBJS-$(CONFIG_TAK_DEMUXER)               += takdec.o apetag.o img2.o rawdec.o
 OBJS-$(CONFIG_THP_DEMUXER)               += thp.o
 OBJS-$(CONFIG_TIERTEXSEQ_DEMUXER)        += tiertexseq.o
 OBJS-$(CONFIG_MKVTIMESTAMP_V2_MUXER)     += mkvtimestamp_v2.o
@@ -348,9 +352,9 @@ OBJS-$(CONFIG_VMD_DEMUXER)               += sierravmd.o
 OBJS-$(CONFIG_VOC_DEMUXER)               += vocdec.o voc.o
 OBJS-$(CONFIG_VOC_MUXER)                 += vocenc.o voc.o
 OBJS-$(CONFIG_VQF_DEMUXER)               += vqf.o
-OBJS-$(CONFIG_W64_DEMUXER)               += wav.o pcm.o
-OBJS-$(CONFIG_WAV_DEMUXER)               += wav.o pcm.o
-OBJS-$(CONFIG_WAV_MUXER)                 += wav.o
+OBJS-$(CONFIG_W64_DEMUXER)               += wavdec.o pcm.o
+OBJS-$(CONFIG_WAV_DEMUXER)               += wavdec.o pcm.o
+OBJS-$(CONFIG_WAV_MUXER)                 += wavenc.o
 OBJS-$(CONFIG_WC3_DEMUXER)               += wc3movie.o
 OBJS-$(CONFIG_WEBM_MUXER)                += matroskaenc.o matroska.o \
                                             isom.o avc.o \
@@ -409,7 +413,8 @@ OBJS-$(CONFIG_UDP_PROTOCOL)              += udp.o
 
 SKIPHEADERS-$(CONFIG_FFRTMPCRYPT_PROTOCOL) += rtmpdh.h
 SKIPHEADERS-$(CONFIG_NETWORK)            += network.h rtsp.h
-TESTPROGS = seek
+TESTPROGS = seek                                                        \
+            url                                                         \
 
 TOOLS     = aviocat                                                     \
             ismindex                                                    \

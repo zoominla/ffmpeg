@@ -38,7 +38,6 @@
 #include "avcodec.h"
 #include "dsputil.h"
 #include "libavutil/opt.h"
-#include "imgconvert.h"
 #include "thread.h"
 #include "frame_thread_encoder.h"
 #include "audioconvert.h"
@@ -185,82 +184,82 @@ void avcodec_align_dimensions2(AVCodecContext *s, int *width, int *height,
     int h_align = 1;
 
     switch (s->pix_fmt) {
-    case PIX_FMT_YUV420P:
-    case PIX_FMT_YUYV422:
-    case PIX_FMT_UYVY422:
-    case PIX_FMT_YUV422P:
-    case PIX_FMT_YUV440P:
-    case PIX_FMT_YUV444P:
-    case PIX_FMT_GBRP:
-    case PIX_FMT_GRAY8:
-    case PIX_FMT_GRAY16BE:
-    case PIX_FMT_GRAY16LE:
-    case PIX_FMT_YUVJ420P:
-    case PIX_FMT_YUVJ422P:
-    case PIX_FMT_YUVJ440P:
-    case PIX_FMT_YUVJ444P:
-    case PIX_FMT_YUVA420P:
-    case PIX_FMT_YUVA422P:
-    case PIX_FMT_YUVA444P:
-    case PIX_FMT_YUV420P9LE:
-    case PIX_FMT_YUV420P9BE:
-    case PIX_FMT_YUV420P10LE:
-    case PIX_FMT_YUV420P10BE:
-    case PIX_FMT_YUV420P12LE:
-    case PIX_FMT_YUV420P12BE:
-    case PIX_FMT_YUV420P14LE:
-    case PIX_FMT_YUV420P14BE:
-    case PIX_FMT_YUV422P9LE:
-    case PIX_FMT_YUV422P9BE:
-    case PIX_FMT_YUV422P10LE:
-    case PIX_FMT_YUV422P10BE:
-    case PIX_FMT_YUV422P12LE:
-    case PIX_FMT_YUV422P12BE:
-    case PIX_FMT_YUV422P14LE:
-    case PIX_FMT_YUV422P14BE:
-    case PIX_FMT_YUV444P9LE:
-    case PIX_FMT_YUV444P9BE:
-    case PIX_FMT_YUV444P10LE:
-    case PIX_FMT_YUV444P10BE:
-    case PIX_FMT_YUV444P12LE:
-    case PIX_FMT_YUV444P12BE:
-    case PIX_FMT_YUV444P14LE:
-    case PIX_FMT_YUV444P14BE:
-    case PIX_FMT_GBRP9LE:
-    case PIX_FMT_GBRP9BE:
-    case PIX_FMT_GBRP10LE:
-    case PIX_FMT_GBRP10BE:
-    case PIX_FMT_GBRP12LE:
-    case PIX_FMT_GBRP12BE:
-    case PIX_FMT_GBRP14LE:
-    case PIX_FMT_GBRP14BE:
+    case AV_PIX_FMT_YUV420P:
+    case AV_PIX_FMT_YUYV422:
+    case AV_PIX_FMT_UYVY422:
+    case AV_PIX_FMT_YUV422P:
+    case AV_PIX_FMT_YUV440P:
+    case AV_PIX_FMT_YUV444P:
+    case AV_PIX_FMT_GBRP:
+    case AV_PIX_FMT_GRAY8:
+    case AV_PIX_FMT_GRAY16BE:
+    case AV_PIX_FMT_GRAY16LE:
+    case AV_PIX_FMT_YUVJ420P:
+    case AV_PIX_FMT_YUVJ422P:
+    case AV_PIX_FMT_YUVJ440P:
+    case AV_PIX_FMT_YUVJ444P:
+    case AV_PIX_FMT_YUVA420P:
+    case AV_PIX_FMT_YUVA422P:
+    case AV_PIX_FMT_YUVA444P:
+    case AV_PIX_FMT_YUV420P9LE:
+    case AV_PIX_FMT_YUV420P9BE:
+    case AV_PIX_FMT_YUV420P10LE:
+    case AV_PIX_FMT_YUV420P10BE:
+    case AV_PIX_FMT_YUV420P12LE:
+    case AV_PIX_FMT_YUV420P12BE:
+    case AV_PIX_FMT_YUV420P14LE:
+    case AV_PIX_FMT_YUV420P14BE:
+    case AV_PIX_FMT_YUV422P9LE:
+    case AV_PIX_FMT_YUV422P9BE:
+    case AV_PIX_FMT_YUV422P10LE:
+    case AV_PIX_FMT_YUV422P10BE:
+    case AV_PIX_FMT_YUV422P12LE:
+    case AV_PIX_FMT_YUV422P12BE:
+    case AV_PIX_FMT_YUV422P14LE:
+    case AV_PIX_FMT_YUV422P14BE:
+    case AV_PIX_FMT_YUV444P9LE:
+    case AV_PIX_FMT_YUV444P9BE:
+    case AV_PIX_FMT_YUV444P10LE:
+    case AV_PIX_FMT_YUV444P10BE:
+    case AV_PIX_FMT_YUV444P12LE:
+    case AV_PIX_FMT_YUV444P12BE:
+    case AV_PIX_FMT_YUV444P14LE:
+    case AV_PIX_FMT_YUV444P14BE:
+    case AV_PIX_FMT_GBRP9LE:
+    case AV_PIX_FMT_GBRP9BE:
+    case AV_PIX_FMT_GBRP10LE:
+    case AV_PIX_FMT_GBRP10BE:
+    case AV_PIX_FMT_GBRP12LE:
+    case AV_PIX_FMT_GBRP12BE:
+    case AV_PIX_FMT_GBRP14LE:
+    case AV_PIX_FMT_GBRP14BE:
         w_align = 16; //FIXME assume 16 pixel per macroblock
         h_align = 16 * 2; // interlaced needs 2 macroblocks height
         break;
-    case PIX_FMT_YUV411P:
-    case PIX_FMT_UYYVYY411:
+    case AV_PIX_FMT_YUV411P:
+    case AV_PIX_FMT_UYYVYY411:
         w_align = 32;
         h_align = 8;
         break;
-    case PIX_FMT_YUV410P:
+    case AV_PIX_FMT_YUV410P:
         if (s->codec_id == AV_CODEC_ID_SVQ1) {
             w_align = 64;
             h_align = 64;
         }
-    case PIX_FMT_RGB555:
+    case AV_PIX_FMT_RGB555:
         if (s->codec_id == AV_CODEC_ID_RPZA) {
             w_align = 4;
             h_align = 4;
         }
-    case PIX_FMT_PAL8:
-    case PIX_FMT_BGR8:
-    case PIX_FMT_RGB8:
+    case AV_PIX_FMT_PAL8:
+    case AV_PIX_FMT_BGR8:
+    case AV_PIX_FMT_RGB8:
         if (s->codec_id == AV_CODEC_ID_SMC) {
             w_align = 4;
             h_align = 4;
         }
         break;
-    case PIX_FMT_BGR24:
+    case AV_PIX_FMT_BGR24:
         if ((s->codec_id == AV_CODEC_ID_MSZH) ||
             (s->codec_id == AV_CODEC_ID_ZLIB)) {
             w_align = 4;
@@ -290,7 +289,8 @@ void avcodec_align_dimensions2(AVCodecContext *s, int *width, int *height,
 
 void avcodec_align_dimensions(AVCodecContext *s, int *width, int *height)
 {
-    int chroma_shift = av_pix_fmt_descriptors[s->pix_fmt].log2_chroma_w;
+    const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(s->pix_fmt);
+    int chroma_shift = desc->log2_chroma_w;
     int linesize_align[AV_NUM_DATA_POINTERS];
     int align;
 
@@ -394,7 +394,7 @@ static int audio_get_buffer(AVCodecContext *avctx, AVFrame *frame)
         if (buf->extended_data[0] && buf_size > buf->audio_data_size) {
             av_free(buf->extended_data[0]);
             if (buf->extended_data != buf->data)
-                av_freep(&buf->extended_data);
+                av_free(buf->extended_data);
             buf->extended_data = NULL;
             buf->data[0]       = NULL;
         }
@@ -487,7 +487,8 @@ static int video_get_buffer(AVCodecContext *s, AVFrame *pic)
         int unaligned;
         AVPicture picture;
         int stride_align[AV_NUM_DATA_POINTERS];
-        const int pixel_size = av_pix_fmt_descriptors[s->pix_fmt].comp[0].step_minus1 + 1;
+        const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(s->pix_fmt);
+        const int pixel_size = desc->comp[0].step_minus1 + 1;
 
         avcodec_get_chroma_sub_sample(s->pix_fmt, &h_chroma_shift, &v_chroma_shift);
 
@@ -543,7 +544,7 @@ static int video_get_buffer(AVCodecContext *s, AVFrame *pic)
             buf->linesize[i] = 0;
         }
         if (size[1] && !size[2])
-            ff_set_systematic_pal2((uint32_t *)buf->data[1], s->pix_fmt);
+            avpriv_set_systematic_pal2((uint32_t *)buf->data[1], s->pix_fmt);
         buf->width   = s->width;
         buf->height  = s->height;
         buf->pix_fmt = s->pix_fmt;
@@ -611,7 +612,6 @@ void avcodec_default_release_buffer(AVCodecContext *s, AVFrame *pic)
     for (i = 0; i < AV_NUM_DATA_POINTERS; i++)
         pic->data[i] = NULL;
 //        pic->base[i]=NULL;
-     //printf("R%X\n", pic->opaque);
 
     if (s->debug & FF_DEBUG_BUFFERS)
         av_log(s, AV_LOG_DEBUG, "default_release_buffer called on pic %p, %d "
@@ -621,7 +621,7 @@ void avcodec_default_release_buffer(AVCodecContext *s, AVFrame *pic)
 int avcodec_default_reget_buffer(AVCodecContext *s, AVFrame *pic)
 {
     AVFrame temp_pic;
-    int i;
+    int i, ret;
 
     av_assert0(s->codec_type == AVMEDIA_TYPE_VIDEO);
 
@@ -655,8 +655,8 @@ int avcodec_default_reget_buffer(AVCodecContext *s, AVFrame *pic)
         pic->data[i] = pic->base[i] = NULL;
     pic->opaque = NULL;
     /* Allocate new frame */
-    if (s->get_buffer(s, pic))
-        return -1;
+    if ((ret = s->get_buffer(s, pic)))
+        return ret;
     /* Copy image data from old buffer to new buffer */
     av_picture_copy((AVPicture *)pic, (AVPicture *)&temp_pic, s->pix_fmt, s->width,
                     s->height);
@@ -688,9 +688,9 @@ int avcodec_default_execute2(AVCodecContext *c, int (*func)(AVCodecContext *c2, 
     return 0;
 }
 
-enum PixelFormat avcodec_default_get_format(struct AVCodecContext *s, const enum PixelFormat *fmt)
+enum AVPixelFormat avcodec_default_get_format(struct AVCodecContext *s, const enum AVPixelFormat *fmt)
 {
-    while (*fmt != PIX_FMT_NONE && ff_is_hwaccel_pix_fmt(*fmt))
+    while (*fmt != AV_PIX_FMT_NONE && ff_is_hwaccel_pix_fmt(*fmt))
         ++fmt;
     return fmt[0];
 }
@@ -949,9 +949,16 @@ int attribute_align_arg avcodec_open2(AVCodecContext *avctx, const AVCodec *code
     if (av_codec_is_encoder(avctx->codec)) {
         int i;
         if (avctx->codec->sample_fmts) {
-            for (i = 0; avctx->codec->sample_fmts[i] != AV_SAMPLE_FMT_NONE; i++)
+            for (i = 0; avctx->codec->sample_fmts[i] != AV_SAMPLE_FMT_NONE; i++) {
                 if (avctx->sample_fmt == avctx->codec->sample_fmts[i])
                     break;
+                if (avctx->channels == 1 &&
+                    av_get_planar_sample_fmt(avctx->sample_fmt) ==
+                    av_get_planar_sample_fmt(avctx->codec->sample_fmts[i])) {
+                    avctx->sample_fmt = avctx->codec->sample_fmts[i];
+                    break;
+                }
+            }
             if (avctx->codec->sample_fmts[i] == AV_SAMPLE_FMT_NONE) {
                 av_log(avctx, AV_LOG_ERROR, "Specified sample_fmt is not supported.\n");
                 ret = AVERROR(EINVAL);
@@ -959,10 +966,10 @@ int attribute_align_arg avcodec_open2(AVCodecContext *avctx, const AVCodec *code
             }
         }
         if (avctx->codec->pix_fmts) {
-            for (i = 0; avctx->codec->pix_fmts[i] != PIX_FMT_NONE; i++)
+            for (i = 0; avctx->codec->pix_fmts[i] != AV_PIX_FMT_NONE; i++)
                 if (avctx->pix_fmt == avctx->codec->pix_fmts[i])
                     break;
-            if (avctx->codec->pix_fmts[i] == PIX_FMT_NONE
+            if (avctx->codec->pix_fmts[i] == AV_PIX_FMT_NONE
                 && !((avctx->codec_id == AV_CODEC_ID_MJPEG || avctx->codec_id == AV_CODEC_ID_LJPEG)
                      && avctx->strict_std_compliance <= FF_COMPLIANCE_UNOFFICIAL)) {
                 av_log(avctx, AV_LOG_ERROR, "Specified pix_fmt is not supported\n");
@@ -1024,10 +1031,15 @@ int attribute_align_arg avcodec_open2(AVCodecContext *avctx, const AVCodec *code
         if (!avctx->bit_rate)
             avctx->bit_rate = get_bit_rate(avctx);
         /* validate channel layout from the decoder */
-        if (avctx->channel_layout &&
-            av_get_channel_layout_nb_channels(avctx->channel_layout) != avctx->channels) {
-            av_log(avctx, AV_LOG_WARNING, "channel layout does not match number of channels\n");
-            avctx->channel_layout = 0;
+        if (avctx->channel_layout) {
+            int channels = av_get_channel_layout_nb_channels(avctx->channel_layout);
+            if (!avctx->channels)
+                avctx->channels = channels;
+            else if (channels != avctx->channels) {
+                av_log(avctx, AV_LOG_WARNING,
+                       "channel layout does not match number of channels\n");
+                avctx->channel_layout = 0;
+            }
         }
     }
 end:
@@ -1272,7 +1284,7 @@ int attribute_align_arg avcodec_encode_audio(AVCodecContext *avctx,
                                              const short *samples)
 {
     AVPacket pkt;
-    AVFrame frame0;
+    AVFrame frame0 = { 0 };
     AVFrame *frame;
     int ret, samples_size, got_packet;
 
@@ -1575,7 +1587,7 @@ int attribute_align_arg avcodec_decode_video2(AVCodecContext *avctx, AVFrame *pi
             if (!picture->sample_aspect_ratio.num) picture->sample_aspect_ratio = avctx->sample_aspect_ratio;
             if (!picture->width)                   picture->width               = avctx->width;
             if (!picture->height)                  picture->height              = avctx->height;
-            if (picture->format == PIX_FMT_NONE)   picture->format              = avctx->pix_fmt;
+            if (picture->format == AV_PIX_FMT_NONE)   picture->format              = avctx->pix_fmt;
         }
 
         emms_c(); //needed to avoid an emms_c() call before every return;
@@ -1743,10 +1755,14 @@ int attribute_align_arg avcodec_decode_audio4(AVCodecContext *avctx,
     /* many decoders assign whole AVFrames, thus overwriting extended_data;
      * make sure it's set correctly; assume decoders that actually use
      * extended_data are doing it correctly */
-    planar   = av_sample_fmt_is_planar(frame->format);
-    channels = av_get_channel_layout_nb_channels(frame->channel_layout);
-    if (!(planar && channels > AV_NUM_DATA_POINTERS))
-        frame->extended_data = frame->data;
+    if (*got_frame_ptr) {
+        planar   = av_sample_fmt_is_planar(frame->format);
+        channels = av_get_channel_layout_nb_channels(frame->channel_layout);
+        if (!(planar && channels > AV_NUM_DATA_POINTERS))
+            frame->extended_data = frame->data;
+    } else {
+        frame->extended_data = NULL;
+    }
 
     return ret;
 }
@@ -1848,6 +1864,7 @@ static enum AVCodecID remap_deprecated_codec_id(enum AVCodecID id)
         //This is for future deprecatec codec ids, its empty since
         //last major bump but will fill up again over time, please don't remove it
 //         case AV_CODEC_ID_UTVIDEO_DEPRECATED: return AV_CODEC_ID_UTVIDEO;
+        case AV_CODEC_ID_OPUS_DEPRECATED: return AV_CODEC_ID_OPUS;
         default                         : return id;
     }
 }
@@ -1991,7 +2008,7 @@ void avcodec_string(char *buf, int buf_size, AVCodecContext *enc, int encode)
 
     switch (enc->codec_type) {
     case AVMEDIA_TYPE_VIDEO:
-        if (enc->pix_fmt != PIX_FMT_NONE) {
+        if (enc->pix_fmt != AV_PIX_FMT_NONE) {
             snprintf(buf + strlen(buf), buf_size - strlen(buf),
                      ", %s",
                      av_get_pix_fmt_name(enc->pix_fmt));
@@ -2418,7 +2435,7 @@ int ff_match_2uint16(const uint16_t(*tab)[2], int size, int a, int b)
 
 void av_log_missing_feature(void *avc, const char *feature, int want_sample)
 {
-    av_log(avc, AV_LOG_WARNING, "%s not implemented. Update your FFmpeg "
+    av_log(avc, AV_LOG_WARNING, "%s is not implemented. Update your FFmpeg "
             "version to the newest one from Git. If the problem still "
             "occurs, it means that your file has a feature which has not "
             "been implemented.\n", feature);
@@ -2457,7 +2474,7 @@ AVHWAccel *av_hwaccel_next(AVHWAccel *hwaccel)
     return hwaccel ? hwaccel->next : first_hwaccel;
 }
 
-AVHWAccel *ff_find_hwaccel(enum AVCodecID codec_id, enum PixelFormat pix_fmt)
+AVHWAccel *ff_find_hwaccel(enum AVCodecID codec_id, enum AVPixelFormat pix_fmt)
 {
     AVHWAccel *hwaccel = NULL;
 

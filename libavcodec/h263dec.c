@@ -62,7 +62,7 @@ av_cold int ff_h263_decode_init(AVCodecContext *avctx)
     s->decode_mb= ff_h263_decode_mb;
     s->low_delay= 1;
     if (avctx->codec->id == AV_CODEC_ID_MSS2)
-        avctx->pix_fmt = PIX_FMT_YUV420P;
+        avctx->pix_fmt = AV_PIX_FMT_YUV420P;
     else
         avctx->pix_fmt = avctx->get_format(avctx, avctx->codec->pix_fmts);
     s->unrestricted_mv= 1;
@@ -170,7 +170,7 @@ static int decode_slice(MpegEncContext *s){
 
     if (s->avctx->hwaccel) {
         const uint8_t *start= s->gb.buffer + get_bits_count(&s->gb)/8;
-        const uint8_t *end  = ff_h263_find_resync_marker(start + 1, s->gb.buffer_end);
+        const uint8_t *end  = ff_h263_find_resync_marker(s, start + 1, s->gb.buffer_end);
         skip_bits_long(&s->gb, 8*(end - start));
         return s->avctx->hwaccel->decode_slice(s->avctx, start, end - start);
     }
@@ -221,7 +221,8 @@ static int decode_slice(MpegEncContext *s){
             s->mv_dir = MV_DIR_FORWARD;
             s->mv_type = MV_TYPE_16X16;
 //            s->mb_skipped = 0;
-//printf("%d %d %06X\n", ret, get_bits_count(&s->gb), show_bits(&s->gb, 24));
+            av_dlog(s, "%d %d %06X\n",
+                    ret, get_bits_count(&s->gb), show_bits(&s->gb, 24));
             ret= s->decode_mb(s, s->block);
 
             if (s->pict_type!=AV_PICTURE_TYPE_B)
@@ -234,7 +235,6 @@ static int decode_slice(MpegEncContext *s){
                     if(s->loop_filter)
                         ff_h263_loop_filter(s);
 
-//printf("%d %d %d %06X\n", s->mb_x, s->mb_y, s->gb.size*8 - get_bits_count(&s->gb), show_bits(&s->gb, 24));
                     ff_er_add_slice(s, s->resync_mb_x, s->resync_mb_y, s->mb_x, s->mb_y, ER_MB_END&part_mask);
 
                     s->padding_bug_score--;
@@ -538,7 +538,6 @@ retry:
 
         if(s->divx_version>=0)
             s->workaround_bugs|= FF_BUG_DIRECT_BLOCKSIZE;
-//printf("padding_bug_score: %d\n", s->padding_bug_score);
         if(s->divx_version==501 && s->divx_build==20020416)
             s->padding_bug_score= 256*256*256*64;
 

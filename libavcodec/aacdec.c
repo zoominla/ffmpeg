@@ -665,8 +665,8 @@ static int decode_ga_specific_config(AACContext *ac, AVCodecContext *avctx,
     int tags = 0;
 
     if (get_bits1(gb)) { // frameLengthFlag
-        av_log_missing_feature(avctx, "960/120 MDCT window is", 1);
-        return -1;
+        av_log_missing_feature(avctx, "960/120 MDCT window", 1);
+        return AVERROR_PATCHWELCOME;
     }
 
     if (get_bits1(gb))       // dependsOnCoreCoder
@@ -1670,7 +1670,7 @@ static int decode_ics(AACContext *ac, SingleChannelElement *sce,
             return -1;
         if (get_bits1(gb)) {
             av_log_missing_feature(ac->avctx, "SSR", 1);
-            return -1;
+            return AVERROR_PATCHWELCOME;
         }
     }
 
@@ -1947,6 +1947,32 @@ static int decode_dynamic_range(DynamicRangeControl *che_drc,
     return n;
 }
 
+static int decode_fill(AACContext *ac, GetBitContext *gb, int len) {
+    uint8_t buf[256];
+    int i, major, minor;
+
+    if (len < 13+7*8)
+        goto unknown;
+
+    get_bits(gb, 13); len -= 13;
+
+    for(i=0; i+1<sizeof(buf) && len>=8; i++, len-=8)
+        buf[i] = get_bits(gb, 8);
+
+    buf[i] = 0;
+    if (ac->avctx->debug & FF_DEBUG_PICT_INFO)
+        av_log(ac->avctx, AV_LOG_DEBUG, "FILL:%s\n", buf);
+
+    if (sscanf(buf, "libfaac %d.%d", &major, &minor) == 2){
+        ac->avctx->internal->skip_samples = 1024;
+    }
+
+unknown:
+    skip_bits_long(gb, len);
+
+    return 0;
+}
+
 /**
  * Decode extension data (incomplete); reference: table 4.51.
  *
@@ -1988,6 +2014,8 @@ static int decode_extension_payload(AACContext *ac, GetBitContext *gb, int cnt,
         res = decode_dynamic_range(&ac->che_drc, gb, cnt);
         break;
     case EXT_FILL:
+        decode_fill(ac, gb, 8 * cnt - 4);
+        break;
     case EXT_FILL_DATA:
     case EXT_DATA_ELEMENT:
     default:
@@ -2360,7 +2388,7 @@ static int parse_adts_frame_header(AACContext *ac, GetBitContext *gb)
         if (!ac->warned_num_aac_frames && hdr_info.num_aac_frames != 1) {
             // This is 2 for "VLB " audio in NSV files.
             // See samples/nsv/vlb_audio.
-            av_log_missing_feature(ac->avctx, "More than one AAC RDB per ADTS frame is", 0);
+            av_log_missing_feature(ac->avctx, "More than one AAC RDB per ADTS frame", 0);
             ac->warned_num_aac_frames = 1;
         }
         push_output_configuration(ac);
@@ -2700,9 +2728,9 @@ static int latm_decode_audio_specific_config(struct LATMContext *latmctx,
         asclen         = get_bits_left(gb);
 
     if (config_start_bit % 8) {
-        av_log_missing_feature(latmctx->aac_ctx.avctx, "audio specific "
-                               "config not byte aligned.\n", 1);
-        return AVERROR_INVALIDDATA;
+        av_log_missing_feature(latmctx->aac_ctx.avctx,
+                               "Non-byte-aligned audio-specific config", 1);
+        return AVERROR_PATCHWELCOME;
     }
     if (asclen <= 0)
         return AVERROR_INVALIDDATA;
@@ -2761,7 +2789,7 @@ static int read_stream_mux_config(struct LATMContext *latmctx,
         // numPrograms
         if (get_bits(gb, 4)) {                  // numPrograms
             av_log_missing_feature(latmctx->aac_ctx.avctx,
-                                   "multiple programs are not supported\n", 1);
+                                   "multiple programs", 1);
             return AVERROR_PATCHWELCOME;
         }
 
@@ -2770,7 +2798,7 @@ static int read_stream_mux_config(struct LATMContext *latmctx,
         // for each layer (which there is only one in DVB)
         if (get_bits(gb, 3)) {                   // numLayer
             av_log_missing_feature(latmctx->aac_ctx.avctx,
-                                   "multiple layers are not supported\n", 1);
+                                   "multiple layers", 1);
             return AVERROR_PATCHWELCOME;
         }
 

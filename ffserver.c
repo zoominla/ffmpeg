@@ -44,6 +44,7 @@
 #include "libavutil/avstring.h"
 #include "libavutil/lfg.h"
 #include "libavutil/dict.h"
+#include "libavutil/intreadwrite.h"
 #include "libavutil/mathematics.h"
 #include "libavutil/random_seed.h"
 #include "libavutil/parseutils.h"
@@ -328,12 +329,40 @@ static AVLFG random_state;
 
 static FILE *logfile = NULL;
 
-/* FIXME: make ffserver work with IPv6 */
-void av_noreturn exit_program(int ret)
+static int64_t ffm_read_write_index(int fd)
 {
-    exit(ret);
+    uint8_t buf[8];
+
+    if (lseek(fd, 8, SEEK_SET) < 0)
+        return AVERROR(EIO);
+    if (read(fd, buf, 8) != 8)
+        return AVERROR(EIO);
+    return AV_RB64(buf);
 }
 
+static int ffm_write_write_index(int fd, int64_t pos)
+{
+    uint8_t buf[8];
+    int i;
+
+    for(i=0;i<8;i++)
+        buf[i] = (pos >> (56 - i * 8)) & 0xff;
+    if (lseek(fd, 8, SEEK_SET) < 0)
+        return AVERROR(EIO);
+    if (write(fd, buf, 8) != 8)
+        return AVERROR(EIO);
+    return 8;
+}
+
+static void ffm_set_write_index(AVFormatContext *s, int64_t pos,
+                                int64_t file_size)
+{
+    FFMContext *ffm = s->priv_data;
+    ffm->write_index = pos;
+    ffm->file_size = file_size;
+}
+
+/* FIXME: make ffserver work with IPv6 */
 /* resolve host with also IP address parsing */
 static int resolve_host(struct in_addr *sin_addr, const char *hostname)
 {
@@ -2034,7 +2063,7 @@ static void compute_status(HTTPContext *c)
                         char cpuperc[10];
                         char cpuused[64];
 
-                        if (fscanf(pid_stat, "%10s %64s", cpuperc,
+                        if (fscanf(pid_stat, "%9s %63s", cpuperc,
                                    cpuused) == 2) {
                             avio_printf(pb, "Currently using %s%% of the cpu. Total time used %s.\n",
                                          cpuperc, cpuused);
@@ -2689,8 +2718,6 @@ static int http_receive_data(HTTPContext *c)
         /* a packet has been received : write it in the store, except
            if header */
         if (c->data_count > FFM_PACKET_SIZE) {
-
-            //            printf("writing pos=0x%"PRIx64" size=0x%"PRIx64"\n", feed->feed_write_index, feed->feed_size);
             /* XXX: use llseek or url_seek */
             lseek(c->feed_fd, feed->feed_write_index, SEEK_SET);
             if (write(c->feed_fd, c->buffer, FFM_PACKET_SIZE) < 0) {
@@ -3481,6 +3508,9 @@ static AVStream *add_av_stream1(FFStream *stream, AVCodecContext *codec, int cop
 {
     AVStream *fst;
 
+    if(stream->nb_streams >= FF_ARRAY_ELEMS(stream->streams))
+        return NULL;
+
     fst = av_mallocz(sizeof(AVStream));
     if (!fst)
         return NULL;
@@ -3827,6 +3857,9 @@ static void compute_bandwidth(void)
 static void add_codec(FFStream *stream, AVCodecContext *av)
 {
     AVStream *st;
+
+    if(stream->nb_streams >= FF_ARRAY_ELEMS(stream->streams))
+        return;
 
     /* compute default parameters */
     switch(av->codec_type) {

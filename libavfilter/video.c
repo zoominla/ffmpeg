@@ -94,7 +94,7 @@ AVFilterBufferRef *ff_default_get_video_buffer(AVFilterLink *link, int perms, in
 
 AVFilterBufferRef *
 avfilter_get_video_buffer_ref_from_arrays(uint8_t * const data[4], const int linesize[4], int perms,
-                                          int w, int h, enum PixelFormat format)
+                                          int w, int h, enum AVPixelFormat format)
 {
     AVFilterBuffer *pic = av_mallocz(sizeof(AVFilterBuffer));
     AVFilterBufferRef *picref = av_mallocz(sizeof(AVFilterBufferRef));
@@ -249,9 +249,11 @@ int ff_start_frame(AVFilterLink *link, AVFilterBufferRef *picref)
 
     FF_TPRINTF_START(NULL, start_frame); ff_tlog_link(NULL, link, 0); ff_tlog(NULL, " "); ff_tlog_ref(NULL, picref, 1);
 
-    av_assert1(picref->format                     == link->format);
-    av_assert1(picref->video->w                   == link->w);
-    av_assert1(picref->video->h                   == link->h);
+    if (strcmp(link->dst->filter->name, "scale")) {
+        av_assert1(picref->format                     == link->format);
+        av_assert1(picref->video->w                   == link->w);
+        av_assert1(picref->video->h                   == link->h);
+    }
 
     if (link->closed) {
         avfilter_unref_buffer(picref);
@@ -373,7 +375,8 @@ int ff_draw_slice(AVFilterLink *link, int y, int h, int slice_dir)
 
     /* copy the slice if needed for permission reasons */
     if (link->src_buf) {
-        vsub = av_pix_fmt_descriptors[link->format].log2_chroma_h;
+        const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(link->format);
+        vsub = desc->log2_chroma_h;
 
         for (i = 0; i < 4; i++) {
             if (link->src_buf->data[i]) {

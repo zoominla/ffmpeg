@@ -1,10 +1,22 @@
 Entries are sorted chronologically from oldest to youngest within each release,
 releases are sorted from youngest to oldest.
 
-version next:
+version <next>:
+
+- stream disposition information printing in ffprobe
+- filter for loudness analysis following EBU R128
+- Opus encoder using libopus
+- ffprobe -select_streams option
+- Pinnacle TARGA CineWave YUV16 decoder
+- TAK demuxer, decoder and parser
+- DTS-HD demuxer
+- remove -same_quant, it hasn't worked for years
+- X-Face image encoder and decoder
+- metadata (INFO tag) support in WAV muxer
 
 
 version 1.0:
+
 - INI and flat output in ffprobe
 - Scene detection in libavfilter
 - Indeo Audio decoder
@@ -57,8 +69,6 @@ version 1.0:
 - volume measurement filter
 - Ut Video encoder
 - Microsoft Screen 2 decoder
-- Matroska demuxer now identifies SRT subtitles as AV_CODEC_ID_SUBRIP
-  instead of AV_CODEC_ID_TEXT
 - smartblur filter ported from MPlayer
 - CPiA decoder
 - decimate filter ported from MPlayer

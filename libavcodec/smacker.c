@@ -231,12 +231,9 @@ static int smacker_decode_header_tree(SmackVContext *smk, GetBitContext *gb, int
         av_log(smk->avctx, AV_LOG_ERROR, "Skipping high bytes tree\n");
     }
 
-    escapes[0]  = get_bits(gb, 8);
-    escapes[0] |= get_bits(gb, 8) << 8;
-    escapes[1]  = get_bits(gb, 8);
-    escapes[1] |= get_bits(gb, 8) << 8;
-    escapes[2]  = get_bits(gb, 8);
-    escapes[2] |= get_bits(gb, 8) << 8;
+    escapes[0]  = get_bits(gb, 16);
+    escapes[1]  = get_bits(gb, 16);
+    escapes[2]  = get_bits(gb, 16);
 
     last[0] = last[1] = last[2] = -1;
 
@@ -365,18 +362,18 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
     GetByteContext gb2;
     GetBitContext gb;
     int blocks, blk, bw, bh;
-    int i;
+    int i, ret;
     int stride;
     int flags;
 
     if (avpkt->size <= 769)
-        return 0;
+        return AVERROR_INVALIDDATA;
 
     smk->pic.reference = 3;
     smk->pic.buffer_hints = FF_BUFFER_HINTS_VALID | FF_BUFFER_HINTS_PRESERVE | FF_BUFFER_HINTS_REUSABLE;
-    if(avctx->reget_buffer(avctx, &smk->pic) < 0){
+    if((ret = avctx->reget_buffer(avctx, &smk->pic)) < 0){
         av_log(avctx, AV_LOG_ERROR, "get_buffer() failed\n");
-        return -1;
+        return ret;
     }
 
     /* make the palette available on the way out */
@@ -391,7 +388,7 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
         smk->pic.pict_type = AV_PICTURE_TYPE_P;
 
     for(i = 0; i < 256; i++)
-        *pal++ = 0xFF << 24 | bytestream2_get_be24u(&gb2);
+        *pal++ = 0xFFU << 24 | bytestream2_get_be24u(&gb2);
 
     last_reset(smk->mmap_tbl, smk->mmap_last);
     last_reset(smk->mclr_tbl, smk->mclr_last);
@@ -524,18 +521,18 @@ static av_cold int decode_init(AVCodecContext *avctx)
 
     c->avctx = avctx;
 
-    avctx->pix_fmt = PIX_FMT_PAL8;
+    avctx->pix_fmt = AV_PIX_FMT_PAL8;
 
     avcodec_get_frame_defaults(&c->pic);
 
     /* decode huffman trees from extradata */
     if(avctx->extradata_size < 16){
         av_log(avctx, AV_LOG_ERROR, "Extradata missing!\n");
-        return -1;
+        return AVERROR(EINVAL);
     }
 
     if (decode_header_trees(c))
-        return -1;
+        return AVERROR_INVALIDDATA;
 
     return 0;
 }

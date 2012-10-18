@@ -689,7 +689,9 @@ static int mov_read_wfex(MOVContext *c, AVIOContext *pb, MOVAtom atom)
         return 0;
     st = c->fc->streams[c->fc->nb_streams-1];
 
-    ff_get_wav_header(pb, st->codec, atom.size);
+    if (ff_get_wav_header(pb, st->codec, atom.size) < 0) {
+        av_log(c->fc, AV_LOG_WARNING, "get_wav_header failed\n");
+    }
 
     return 0;
 }
@@ -778,14 +780,16 @@ static int mov_read_moof(MOVContext *c, AVIOContext *pb, MOVAtom atom)
     return mov_read_default(c, pb, atom);
 }
 
-static void mov_metadata_creation_time(AVDictionary **metadata, time_t time)
+static void mov_metadata_creation_time(AVDictionary **metadata, int64_t time)
 {
     char buffer[32];
     if (time) {
         struct tm *ptm;
+        time_t timet;
         if(time >= 2082844800)
             time -= 2082844800;  /* seconds between 1904-01-01 and Epoch */
-        ptm = gmtime(&time);
+        timet = time;
+        ptm = gmtime(&timet);
         if (!ptm) return;
         strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", ptm);
         av_dict_set(metadata, "creation_time", buffer, 0);
@@ -799,7 +803,7 @@ static int mov_read_mdhd(MOVContext *c, AVIOContext *pb, MOVAtom atom)
     int version;
     char language[4] = {0};
     unsigned lang;
-    time_t creation_time;
+    int64_t creation_time;
 
     if (c->fc->nb_streams < 1)
         return 0;
@@ -834,7 +838,7 @@ static int mov_read_mdhd(MOVContext *c, AVIOContext *pb, MOVAtom atom)
 
 static int mov_read_mvhd(MOVContext *c, AVIOContext *pb, MOVAtom atom)
 {
-    time_t creation_time;
+    int64_t creation_time;
     int version = avio_r8(pb); /* version */
     avio_rb24(pb); /* flags */
 
@@ -2624,8 +2628,9 @@ static int mov_read_elst(MOVContext *c, AVIOContext *pb, MOVAtom atom)
 {
     MOVStreamContext *sc;
     int i, edit_count, version, edit_start_index = 0;
+    int unsupported = 0;
 
-    if (c->fc->nb_streams < 1)
+    if (c->fc->nb_streams < 1 || c->ignore_editlist)
         return 0;
     sc = c->fc->streams[c->fc->nb_streams-1]->priv_data;
 
@@ -2636,9 +2641,11 @@ static int mov_read_elst(MOVContext *c, AVIOContext *pb, MOVAtom atom)
     if ((uint64_t)edit_count*12+8 > atom.size)
         return AVERROR_INVALIDDATA;
 
+    av_dlog(c->fc, "track[%i].edit_count = %i\n", c->fc->nb_streams-1, edit_count);
     for (i=0; i<edit_count; i++){
         int64_t time;
         int64_t duration;
+        int rate;
         if (version == 1) {
             duration = avio_rb64(pb);
             time     = avio_rb64(pb);
@@ -2646,19 +2653,23 @@ static int mov_read_elst(MOVContext *c, AVIOContext *pb, MOVAtom atom)
             duration = avio_rb32(pb); /* segment duration */
             time     = (int32_t)avio_rb32(pb); /* media time */
         }
-        avio_rb32(pb); /* Media rate */
+        rate = avio_rb32(pb);
         if (i == 0 && time == -1) {
             sc->empty_duration = duration;
             edit_start_index = 1;
         } else if (i == edit_start_index && time >= 0)
             sc->start_time = time;
+        else
+            unsupported = 1;
+
+        av_dlog(c->fc, "duration=%"PRId64" time=%"PRId64" rate=%f\n",
+                duration, time, rate / 65536.0);
     }
 
-    if (edit_count > 1)
+    if (unsupported)
         av_log(c->fc, AV_LOG_WARNING, "multiple edit list entries, "
                "a/v desync might occur, patch welcome\n");
 
-    av_dlog(c->fc, "track[%i].edit_count = %i\n", c->fc->nb_streams-1, edit_count);
     return 0;
 }
 
@@ -2847,7 +2858,7 @@ static int mov_read_default(MOVContext *c, AVIOContext *pb, MOVAtom atom)
 
 static int mov_probe(AVProbeData *p)
 {
-    unsigned int offset;
+    int64_t offset;
     uint32_t tag;
     int score = 0;
 
@@ -3135,8 +3146,6 @@ static int mov_read_header(AVFormatContext *s)
         AVStream *st = s->streams[i];
         MOVStreamContext *sc = st->priv_data;
         if(st->codec->codec_type == AVMEDIA_TYPE_AUDIO && st->codec->codec_id == AV_CODEC_ID_AAC) {
-            if(!sc->start_pad)
-                sc->start_pad = 1024;
             st->skip_samples = sc->start_pad;
         }
     }
@@ -3330,7 +3339,9 @@ static int mov_read_seek(AVFormatContext *s, int stream_index, int64_t sample_ti
 static const AVOption options[] = {
     {"use_absolute_path",
         "allow using absolute path when opening alias, this is a possible security issue",
-        offsetof(MOVContext, use_absolute_path), FF_OPT_TYPE_INT, {.dbl = 0},
+        offsetof(MOVContext, use_absolute_path), FF_OPT_TYPE_INT, {.i64 = 0},
+        0, 1, AV_OPT_FLAG_VIDEO_PARAM|AV_OPT_FLAG_DECODING_PARAM},
+    {"ignore_editlist", "", offsetof(MOVContext, ignore_editlist), FF_OPT_TYPE_INT, {.i64 = 0},
         0, 1, AV_OPT_FLAG_VIDEO_PARAM|AV_OPT_FLAG_DECODING_PARAM},
     {NULL}
 };

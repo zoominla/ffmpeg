@@ -1138,10 +1138,16 @@ flite=text='So fare thee well, poor devil of a Sub-Sub, whose commentator I am':
 @end example
 
 @item
-Make @file{ffplay} speech the specified text, using @code{flite} and
+Input text to ffmpeg:
+@example
+ffmpeg -f lavfi -i flite=text='So fare thee well, poor devil of a Sub-Sub, whose commentator I am':voice=slt
+@end example
+
+@item
+Make @file{ffplay} speak the specified text, using @code{flite} and
 the @code{lavfi} device:
 @example
-ffplay -f lavfi flite='No more be grieved for which that thou hast done.'
+ffplay -f lavfi flite=text='No more be grieved for which that thou hast done.'
 @end example
 @end itemize
 
@@ -1224,24 +1230,31 @@ using the libass library.
 To enable compilation of this filter you need to configure FFmpeg with
 @code{--enable-libass}.
 
-This filter accepts the syntax: @var{ass_filename}[:@var{options}],
-where @var{ass_filename} is the filename of the ASS file to read, and
-@var{options} is an optional sequence of @var{key}=@var{value} pairs,
-separated by ":".
-
-A description of the accepted options follows.
+This filter accepts the following named options, expressed as a
+sequence of @var{key}=@var{value} pairs, separated by ":".
 
 @table @option
+@item filename, f
+Set the filename of the ASS file to read. It must be specified.
+
 @item original_size
-Specifies the size of the original video, the video for which the ASS file
+Specify the size of the original video, the video for which the ASS file
 was composed. Due to a misdesign in ASS aspect ratio arithmetic, this is
 necessary to correctly scale the fonts if the aspect ratio has been changed.
 @end table
+
+If the first key is not specified, it is assumed that the first value
+specifies the @option{filename}.
 
 For example, to render the file @file{sub.ass} on top of the input
 video, use the command:
 @example
 ass=sub.ass
+@end example
+
+which is equivalent to:
+@example
+ass=filename=sub.ass
 @end example
 
 @section bbox
@@ -2446,14 +2459,10 @@ corresponding pixel component values.
 The @var{lut} filter requires either YUV or RGB pixel formats in
 input, and accepts the options:
 @table @option
-@item c0
-first  pixel component
-@item c1
-second pixel component
-@item c2
-third  pixel component
-@item c3
-fourth pixel component, corresponds to the alpha component
+@item @var{c0} (first  pixel component)
+@item @var{c1} (second pixel component)
+@item @var{c2} (third  pixel component)
+@item @var{c3} (fourth pixel component, corresponds to the alpha component)
 @end table
 
 The exact component associated to each option depends on the format in
@@ -2462,27 +2471,19 @@ input.
 The @var{lutrgb} filter requires RGB pixel formats in input, and
 accepts the options:
 @table @option
-@item r
-red component
-@item g
-green component
-@item b
-blue component
-@item a
-alpha component
+@item @var{r} (red component)
+@item @var{g} (green component)
+@item @var{b} (blue component)
+@item @var{a} (alpha component)
 @end table
 
 The @var{lutyuv} filter requires YUV pixel formats in input, and
 accepts the options:
 @table @option
-@item y
-Y/luminance component
-@item u
-U/Cb component
-@item v
-V/Cr component
-@item a
-alpha component
+@item @var{y} (Y/luminance component)
+@item @var{u} (U/Cb component)
+@item @var{v} (V/Cr component)
+@item @var{a} (alpha component)
 @end table
 
 The expressions can contain the following constants and functions:
@@ -2911,7 +2912,7 @@ The default value of @var{color} is "black".
 
 @end table
 
-@section Examples
+@subsection Examples
 
 @itemize
 @item
@@ -3005,7 +3006,7 @@ pixels will slow things down on a large logo.
 
 @section scale
 
-Scale the input video to @var{width}:@var{height}[:@var{interl}=@{1|-1@}] and/or convert the image format.
+Scale (resize) the input video to @var{width}:@var{height}[:@var{interl}=@{1|-1@}] and/or convert the image format.
 
 The scale filter forces the output display aspect ratio to be the same
 of the input, by changing the output sample aspect ratio.
@@ -3519,8 +3520,11 @@ Default mode is @code{merge}.
 
 Transpose rows with columns in the input video and optionally flip it.
 
-It accepts a parameter representing an integer, which can assume the
-values:
+This filter accepts the following named parameters:
+
+@table @option
+@item dir
+Specify the transposition direction. Can assume the following values:
 
 @table @samp
 @item 0, 4
@@ -3556,8 +3560,24 @@ l.r     l.L
 @end example
 @end table
 
-For values between 4-7 transposition is only done if the input video
-geometry is portrait and not landscape.
+For values between 4-7, the transposition is only done if the input
+video geometry is portrait and not landscape. These values are
+deprecated, the @code{passthrough} option should be used instead.
+
+@item passthrough
+Do not apply the transposition if the input geometry matches the one
+specified by the specified value. It accepts the following values:
+@table @samp
+@item none
+Always apply transposition.
+@item portrait
+Preserve portrait geometry (when @var{height} >= @var{width}).
+@item landscape
+Preserve landscape geometry (when @var{width} >= @var{height}).
+@end table
+
+Default value is @code{none}.
+@end table
 
 @section unsharp
 
@@ -3683,7 +3703,7 @@ This source is mainly intended for a programmatic use, in particular
 through the interface defined in @file{libavfilter/vsrc_buffer.h}.
 
 It accepts a list of options in the form of @var{key}=@var{value} pairs
-separated by ":". A descroption of the accepted options follows.
+separated by ":". A description of the accepted options follows.
 
 @table @option
 
@@ -3719,7 +3739,7 @@ will instruct the source to accept video frames with size 320x240 and
 with format "yuv410p", assuming 1/24 as the timestamps timebase and
 square pixels (1:1 sample aspect ratio).
 Since the pixel format with name "yuv410p" corresponds to the number 6
-(check the enum PixelFormat definition in @file{libavutil/pixfmt.h}),
+(check the enum AVPixelFormat definition in @file{libavutil/pixfmt.h}),
 this example corresponds to:
 @example
 buffer=size=320x240:pixfmt=6:time_base=1/24:pixel_aspect=1/1
@@ -4479,6 +4499,53 @@ Apply an offset of 10 seconds to the input PTS:
 setpts=PTS+10/TB
 @end example
 @end itemize
+
+@section ebur128
+
+EBU R128 scanner filter. This filter takes an audio stream as input and outputs
+it unchanged. By default, it logs a message at a frequency of 10Hz with the
+Momentary loudness (identified by @code{M}), Short-term loudness (@code{S}),
+Integrated loudness (@code{I}) and Loudness Range (@code{LRA}).
+
+The filter also has a video output (see the @var{video} option) with a real
+time graph to observe the loudness evolution. The graphic contains the logged
+message mentioned above, so it is not printed anymore when this option is set,
+unless the verbose logging is set. The main graphing area contains the
+short-term loudness (3 seconds of analysis), and the gauge on the right is for
+the momentary loudness (400 milliseconds).
+
+More information about the Loudness Recommendation EBU R128 on
+@url{http://tech.ebu.ch/loudness}.
+
+The filter accepts the following named parameters:
+
+@table @option
+
+@item video
+Activate the video output. The audio stream is passed unchanged whether this
+option is set or no. The video stream will be the first output stream if
+activated. Default is @code{0}.
+
+@item size
+Set the video size. This option is for video only. Default and minimum
+resolution is @code{640x480}.
+
+@item meter
+Set the EBU scale meter. Default is @code{9}. Common values are @code{9} and
+@code{18}, respectively for EBU scale meter +9 and EBU scale meter +18. Any
+other integer value between this range is allowed.
+
+@end table
+
+Example of real-time graph using @command{ffplay}, with a EBU scale meter +18:
+@example
+ffplay -f lavfi -i "amovie=input.mp3,ebur128=video=1:meter=18 [out0][out1]"
+@end example
+
+Run an analysis with @command{ffmpeg}:
+@example
+ffmpeg -nostats -i input.mp3 -filter_complex ebur128 -f null -
+@end example
 
 @section settb, asettb
 
