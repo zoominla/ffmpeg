@@ -19,8 +19,6 @@ _config="configure \
   --disable-static \
   --disable-devices \
   --disable-avdevice \
-  --enable-ffplay \
-  --disable-ffprobe \
   --disable-ffserver \
   --disable-w32threads \
   --extra-cflags=-U__STRICT_ANSI__ \
@@ -44,13 +42,12 @@ _config_lite="\
   --enable-encoder=zmbv \
   --enable-muxer=rawvideo \
   --enable-muxer=wav \
-  --prefix=/usr/local/ffmpeg-ww "
+  --prefix=/usr/local/ffmpeg"
 
-if test $_target = full ; then
-    _config+=" --enable-libmp3lame --enable-libaacplus --extra-cflags=-I/usr/local/x264/include --extra-ldflags=-L/usr/local/x264/lib --prefix=/usr/local/ffmpeg"
+if test $_target = lite ; then
+	_config+=$_config_lite
 else
-    _config+=$_config_lite
+    _config+=" --enable-libmp3lame --enable-libaacplus --extra-cflags=-I/usr/local/x264/include --extra-ldflags=-L/usr/local/x264/lib --prefix=/usr/local/ffmpeg"
 fi
 
 ./$_config
-

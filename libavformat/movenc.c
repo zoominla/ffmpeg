@@ -52,6 +52,7 @@ static const AVOption options[] = {
     { "separate_moof", "Write separate moof/mdat atoms for each track", 0, AV_OPT_TYPE_CONST, {.i64 = FF_MOV_FLAG_SEPARATE_MOOF}, INT_MIN, INT_MAX, AV_OPT_FLAG_ENCODING_PARAM, "movflags" },
     { "frag_custom", "Flush fragments on caller requests", 0, AV_OPT_TYPE_CONST, {.i64 = FF_MOV_FLAG_FRAG_CUSTOM}, INT_MIN, INT_MAX, AV_OPT_FLAG_ENCODING_PARAM, "movflags" },
     { "isml", "Create a live smooth streaming feed (for pushing to a publishing point)", 0, AV_OPT_TYPE_CONST, {.i64 = FF_MOV_FLAG_ISML}, INT_MIN, INT_MAX, AV_OPT_FLAG_ENCODING_PARAM, "movflags" },
+    { "faststart", "Run a second pass to put the moov at the beginning of the file", 0, AV_OPT_TYPE_CONST, {.i64 = FF_MOV_FLAG_FASTSTART}, INT_MIN, INT_MAX, AV_OPT_FLAG_ENCODING_PARAM, "movflags" },
     FF_RTP_FLAG_OPTS(MOVMuxContext, rtp_flags),
     { "skip_iods", "Skip writing iods atom.", offsetof(MOVMuxContext, iods_skip), AV_OPT_TYPE_INT, {.i64 = 1}, 0, 1, AV_OPT_FLAG_ENCODING_PARAM},
     { "iods_audio_profile", "iods audio profile atom.", offsetof(MOVMuxContext, iods_audio_profile), AV_OPT_TYPE_INT, {.i64 = -1}, -1, 255, AV_OPT_FLAG_ENCODING_PARAM},
@@ -82,17 +83,29 @@ static int64_t update_size(AVIOContext *pb, int64_t pos)
     return curpos - pos;
 }
 
+static int is_co64_required(const MOVTrack *track)
+{
+    int i;
+
+    for (i = 0; i < track->entry; i++) {
+        if (!track->cluster[i].chunkNum)
+            continue;
+        if (track->cluster[i].pos + track->data_offset > UINT32_MAX)
+            return 1;
+    }
+    return 0;
+}
+
 /* Chunk offset atom */
 static int mov_write_stco_tag(AVIOContext *pb, MOVTrack *track)
 {
     int i;
-    int mode64 = 0; //   use 32 bit size variant if possible
+    int mode64 = is_co64_required(track); // use 32 bit size variant if possible
     int64_t pos = avio_tell(pb);
     avio_wb32(pb, 0); /* size */
-    if (pos > UINT32_MAX) {
-        mode64 = 1;
+    if (mode64)
         ffio_wfourcc(pb, "co64");
-    } else
+    else
         ffio_wfourcc(pb, "stco");
     avio_wb32(pb, 0); /* version & flags */
     avio_wb32(pb, track->chunkCount); /* entry count */
@@ -933,6 +946,14 @@ static const AVCodecTag codec_3gp_tags[] = {
     { AV_CODEC_ID_NONE, 0 },
 };
 
+static const AVCodecTag codec_f4v_tags[] = { // XXX: add GIF/PNG/JPEG?
+    { AV_CODEC_ID_MP3,    MKTAG('.','m','p','3') },
+    { AV_CODEC_ID_AAC,    MKTAG('m','p','4','a') },
+    { AV_CODEC_ID_H264,   MKTAG('a','v','c','1') },
+    { AV_CODEC_ID_VP6F,   MKTAG('V','P','6','F') },
+    { AV_CODEC_ID_NONE, 0 },
+};
+
 static int mov_find_codec_tag(AVFormatContext *s, MOVTrack *track)
 {
     int tag;
@@ -947,6 +968,8 @@ static int mov_find_codec_tag(AVFormatContext *s, MOVTrack *track)
         tag = ipod_get_codec_tag(s, track);
     else if (track->mode & MODE_3GP)
         tag = ff_codec_get_tag(codec_3gp_tags, track->enc->codec_id);
+    else if (track->mode & MODE_F4V)
+        tag = ff_codec_get_tag(codec_f4v_tags, track->enc->codec_id);
     else
         tag = mov_get_codec_tag(s, track);
 
@@ -2697,6 +2720,8 @@ static int mov_write_ftyp_tag(AVIOContext *pb, AVFormatContext *s)
         ffio_wfourcc(pb, has_video ? "M4V ":"M4A ");
     else if (mov->mode == MODE_ISM)
         ffio_wfourcc(pb, "isml");
+    else if (mov->mode == MODE_F4V)
+        ffio_wfourcc(pb, "f4v ");
     else
         ffio_wfourcc(pb, "qt  ");
 
@@ -2864,6 +2889,21 @@ static void mov_parse_vc1_frame(AVPacket *pkt, MOVTrack *trk, int fragment)
     }
 }
 
+static int get_moov_size(AVFormatContext *s)
+{
+    int ret;
+    uint8_t *buf;
+    AVIOContext *moov_buf;
+    MOVMuxContext *mov = s->priv_data;
+
+    if ((ret = avio_open_dyn_buf(&moov_buf)) < 0)
+        return ret;
+    mov_write_moov_tag(moov_buf, mov, s);
+    ret = avio_close_dyn_buf(moov_buf, &buf);
+    av_free(buf);
+    return ret;
+}
+
 static int mov_flush_fragment(AVFormatContext *s)
 {
     MOVMuxContext *mov = s->priv_data;
@@ -2875,10 +2915,8 @@ static int mov_flush_fragment(AVFormatContext *s)
 
     if (!(mov->flags & FF_MOV_FLAG_EMPTY_MOOV) && mov->fragments == 0) {
         int64_t pos = avio_tell(s->pb);
-        int ret;
-        AVIOContext *moov_buf;
         uint8_t *buf;
-        int buf_size;
+        int buf_size, moov_size;
 
         for (i = 0; i < mov->nb_streams; i++)
             if (!mov->tracks[i].entry)
@@ -2887,13 +2925,9 @@ static int mov_flush_fragment(AVFormatContext *s)
         if (i < mov->nb_streams)
             return 0;
 
-        if ((ret = avio_open_dyn_buf(&moov_buf)) < 0)
-            return ret;
-        mov_write_moov_tag(moov_buf, mov, s);
-        buf_size = avio_close_dyn_buf(moov_buf, &buf);
-        av_free(buf);
+        moov_size = get_moov_size(s);
         for (i = 0; i < mov->nb_streams; i++)
-            mov->tracks[i].data_offset = pos + buf_size + 8;
+            mov->tracks[i].data_offset = pos + moov_size + 8;
 
         mov_write_moov_tag(s->pb, mov, s);
 
@@ -3368,6 +3402,14 @@ static int mov_write_header(AVFormatContext *s)
                       FF_MOV_FLAG_FRAG_CUSTOM))
         mov->flags |= FF_MOV_FLAG_FRAGMENT;
 
+    /* faststart: moov at the beginning of the file, if supported */
+    if (mov->flags & FF_MOV_FLAG_FASTSTART) {
+        if (mov->flags & FF_MOV_FLAG_FRAGMENT)
+            mov->flags &= ~FF_MOV_FLAG_FASTSTART;
+        else
+            mov->reserved_moov_size = -1;
+    }
+
     /* Non-seekable output is ok if using fragmentation. If ism_lookahead
      * is enabled, we don't support non-seekable output at all. */
     if (!s->pb->seekable &&
@@ -3388,6 +3430,7 @@ static int mov_write_header(AVFormatContext *s)
         else if (!strcmp("psp", s->oformat->name)) mov->mode = MODE_PSP;
         else if (!strcmp("ipod",s->oformat->name)) mov->mode = MODE_IPOD;
         else if (!strcmp("ismv",s->oformat->name)) mov->mode = MODE_ISM;
+        else if (!strcmp("f4v", s->oformat->name)) mov->mode = MODE_F4V;
 
         mov_write_ftyp_tag(pb,s);
         if (mov->mode == MODE_PSP) {
@@ -3539,7 +3582,8 @@ static int mov_write_header(AVFormatContext *s)
 
     if(mov->reserved_moov_size){
         mov->reserved_moov_pos= avio_tell(pb);
-        avio_skip(pb, mov->reserved_moov_size);
+        if (mov->reserved_moov_size > 0)
+            avio_skip(pb, mov->reserved_moov_size);
     }
 
     if (!(mov->flags & FF_MOV_FLAG_FRAGMENT))
@@ -3599,6 +3643,100 @@ static int mov_write_header(AVFormatContext *s)
     return -1;
 }
 
+/**
+ * This function gets the moov size if moved to the top of the file: the chunk
+ * offset table can switch between stco (32-bit entries) to co64 (64-bit
+ * entries) when the moov is moved to the top, so the size of the moov would
+ * change. It also updates the chunk offset tables.
+ */
+static int compute_moov_size(AVFormatContext *s)
+{
+    int i, moov_size, moov_size2;
+    MOVMuxContext *mov = s->priv_data;
+
+    moov_size = get_moov_size(s);
+    if (moov_size < 0)
+        return moov_size;
+
+    for (i = 0; i < mov->nb_streams; i++)
+        mov->tracks[i].data_offset += moov_size;
+
+    moov_size2 = get_moov_size(s);
+    if (moov_size2 < 0)
+        return moov_size2;
+
+    /* if the size changed, we just switched from stco to co64 and needs to
+     * update the offsets */
+    if (moov_size2 != moov_size)
+        for (i = 0; i < mov->nb_streams; i++)
+            mov->tracks[i].data_offset += moov_size2 - moov_size;
+
+    return moov_size2;
+}
+
+static int shift_data(AVFormatContext *s)
+{
+    int ret = 0, moov_size;
+    MOVMuxContext *mov = s->priv_data;
+    int64_t pos, pos_end = avio_tell(s->pb);
+    uint8_t *buf, *read_buf[2];
+    int read_buf_id = 0;
+    int read_size[2];
+    AVIOContext *read_pb;
+
+    moov_size = compute_moov_size(s);
+    if (moov_size < 0)
+        return moov_size;
+
+    buf = av_malloc(moov_size * 2);
+    if (!buf)
+        return AVERROR(ENOMEM);
+    read_buf[0] = buf;
+    read_buf[1] = buf + moov_size;
+
+    /* Shift the data: the AVIO context of the output can only be used for
+     * writing, so we re-open the same output, but for reading. It also avoids
+     * a read/seek/write/seek back and forth. */
+    avio_flush(s->pb);
+    ret = avio_open(&read_pb, s->filename, AVIO_FLAG_READ);
+    if (ret < 0) {
+        av_log(s, AV_LOG_ERROR, "Unable to re-open %s output file for "
+               "the second pass (faststart)\n", s->filename);
+        goto end;
+    }
+
+    /* mark the end of the shift to up to the last data we wrote, and get ready
+     * for writing */
+    pos_end = avio_tell(s->pb);
+    avio_seek(s->pb, mov->reserved_moov_pos + moov_size, SEEK_SET);
+
+    /* start reading at where the new moov will be placed */
+    avio_seek(read_pb, mov->reserved_moov_pos, SEEK_SET);
+    pos = avio_tell(read_pb);
+
+#define READ_BLOCK do {                                                             \
+    read_size[read_buf_id] = avio_read(read_pb, read_buf[read_buf_id], moov_size);  \
+    read_buf_id ^= 1;                                                               \
+} while (0)
+
+    /* shift data by chunk of at most moov_size */
+    READ_BLOCK;
+    do {
+        int n;
+        READ_BLOCK;
+        n = read_size[read_buf_id];
+        if (n <= 0)
+            break;
+        avio_write(s->pb, read_buf[read_buf_id], n);
+        pos += n;
+    } while (pos < pos_end);
+    avio_close(read_pb);
+
+end:
+    av_free(buf);
+    return ret;
+}
+
 static int mov_write_trailer(AVFormatContext *s)
 {
     MOVMuxContext *mov = s->priv_data;
@@ -3636,11 +3774,19 @@ static int mov_write_trailer(AVFormatContext *s)
             ffio_wfourcc(pb, "mdat");
             avio_wb64(pb, mov->mdat_size + 16);
         }
-        avio_seek(pb, mov->reserved_moov_size ? mov->reserved_moov_pos : moov_pos, SEEK_SET);
+        avio_seek(pb, mov->reserved_moov_size > 0 ? mov->reserved_moov_pos : moov_pos, SEEK_SET);
 
-        mov_write_moov_tag(pb, mov, s);
-        if(mov->reserved_moov_size){
-            int64_t size=  mov->reserved_moov_size - (avio_tell(pb) - mov->reserved_moov_pos);
+        if (mov->reserved_moov_size == -1) {
+            av_log(s, AV_LOG_INFO, "Starting second pass: moving header on top of the file\n");
+            res = shift_data(s);
+            if (res == 0) {
+                avio_seek(s->pb, mov->reserved_moov_pos, SEEK_SET);
+                mov_write_moov_tag(pb, mov, s);
+            }
+        } else if (mov->reserved_moov_size > 0) {
+            int64_t size;
+            mov_write_moov_tag(pb, mov, s);
+            size = mov->reserved_moov_size - (avio_tell(pb) - mov->reserved_moov_pos);
             if(size < 8){
                 av_log(s, AV_LOG_ERROR, "reserved_moov_size is too small, needed %"PRId64" additional\n", 8-size);
                 return -1;
@@ -3650,6 +3796,8 @@ static int mov_write_trailer(AVFormatContext *s)
             for(i=0; i<size; i++)
                 avio_w8(pb, 0);
             avio_seek(pb, moov_pos, SEEK_SET);
+        } else {
+            mov_write_moov_tag(pb, mov, s);
         }
     } else {
         mov_flush_fragment(s);
@@ -3812,5 +3960,23 @@ AVOutputFormat ff_ismv_muxer = {
     .flags             = AVFMT_GLOBALHEADER | AVFMT_ALLOW_FLUSH,
     .codec_tag         = (const AVCodecTag* const []){ ff_mp4_obj_type, 0 },
     .priv_class        = &ismv_muxer_class,
+};
+#endif
+#if CONFIG_F4V_MUXER
+MOV_CLASS(f4v)
+AVOutputFormat ff_f4v_muxer = {
+    .name              = "f4v",
+    .long_name         = NULL_IF_CONFIG_SMALL("F4V Adobe Flash Video"),
+    .mime_type         = "application/f4v",
+    .extensions        = "f4v",
+    .priv_data_size    = sizeof(MOVMuxContext),
+    .audio_codec       = AV_CODEC_ID_AAC,
+    .video_codec       = AV_CODEC_ID_H264,
+    .write_header      = mov_write_header,
+    .write_packet      = mov_write_packet,
+    .write_trailer     = mov_write_trailer,
+    .flags             = AVFMT_GLOBALHEADER | AVFMT_ALLOW_FLUSH,
+    .codec_tag         = (const AVCodecTag* const []){ codec_f4v_tags, 0 },
+    .priv_class        = &f4v_muxer_class,
 };
 #endif

@@ -30,13 +30,11 @@ tests/data/vsynth1.yuv: tests/videogen$(HOSTEXESUF) | tests/data
 tests/data/vsynth2.yuv: tests/rotozoom$(HOSTEXESUF) | tests/data
 	$(M)$< $(SRC_PATH)/tests/lena.pnm $@
 
-tests/data/ffprobe-test.nut: ffmpeg$(HOSTEXESUF) | tests/data
+tests/data/ffprobe-test.nut: ffmpeg$(EXESUF) | tests/data
 	$(M)./$< \
         -f lavfi -i "aevalsrc=sin(400*PI*2*t)::d=0.125[out0]; testsrc=d=0.125[out1]; testsrc=s=100x100:d=0.125[out2]" \
-        -flags +bitexact -map 0:0 -map 0:1 -map 0:2 \
-        -metadata "title=ffprobe test file" \
-        -metadata "comment='A comment wih CSV, XML & JSON special chars': <tag value=\"x\">" \
-        -metadata "comment2=I ♥ Üñîçød€" \
+        -f ffmetadata -i $(SRC_PATH)/tests/test.ffmeta \
+        -flags +bitexact -map 0:0 -map 0:1 -map 0:2 -map_metadata 1 \
         -vcodec rawvideo -acodec pcm_s16le \
         -y $@ 2>/dev/null
 
@@ -106,6 +104,7 @@ FATE_AVCONV += $(FATE_LAVF)                                             \
 
 FATE_FFMPEG += $(FATE_FFMPEG-yes) $(FATE_AVCONV) $(FATE_AVCONV-yes)
 FATE-$(CONFIG_FFMPEG) += $(FATE_FFMPEG)
+FATE-$(CONFIG_FFPROBE) += $(FATE_FFPROBE)
 
 FATE-$(CONFIG_AVCODEC)  += $(FATE_LIBAVCODEC)
 
@@ -114,7 +113,6 @@ FATE_EXTERN += $(FATE_EXTERN-yes)
 
 FATE += $(FATE-yes)
 FATE += $(FATE_LIBAVUTIL)
-FATE += $(FATE_FFPROBE)
 
 $(FATE_FFMPEG) $(FATE_LAVF_FATE) $(FATE_SAMPLES_AVCONV) $(FATE_SAMPLES_FFMPEG): ffmpeg$(EXESUF)
 
