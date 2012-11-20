@@ -97,7 +97,7 @@ static int av_mpeg4_decode_header(AVCodecParserContext *s1,
         av_assert1(s1->pts == AV_NOPTS_VALUE);
         av_assert1(s1->dts == AV_NOPTS_VALUE);
 
-        s1->pts = av_rescale_q(s->time, (AVRational){1, s->avctx->time_base.den}, (AVRational){1, 1200000});
+        s1->pts = av_rescale_q(s->time, (AVRational){1, s->avctx->time_base.den}, (AVRational){1, 12000});
     }
 
     s1->pict_type= s->pict_type;

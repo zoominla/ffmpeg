@@ -166,7 +166,7 @@ int ff_raw_video_read_header(AVFormatContext *s)
     }
 
     st->codec->time_base = av_inv_q(framerate);
-    avpriv_set_pts_info(st, 64, 1, 1200000);
+    avpriv_set_pts_info(st, 64, 1, 12000);
 
 fail:
     return ret;

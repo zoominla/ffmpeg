@@ -61,6 +61,10 @@ static int do_show_streams = 0;
 static int do_show_data    = 0;
 static int do_show_program_version  = 0;
 static int do_show_library_versions = 0;
+static int detect_interlace_frames = 0;		// decode video frame count(to detect interlace info)
+static int interlaced_video = 0;			// 0:progressive, 1:interlaced
+static int field_top_first = 0;				// 0:bottom first, 1:top first
+static int video_frame_counter = 0;
 
 static int show_value_unit              = 0;
 static int use_value_prefix             = 0;
@@ -1590,6 +1594,7 @@ static av_always_inline int process_frame(WriterContext *w,
             break;
 
         case AVMEDIA_TYPE_AUDIO:
+			//if(detect_interlace_frames > 0) return 1;
             ret = avcodec_decode_audio4(dec_ctx, frame, &got_frame, pkt);
             break;
         }
@@ -1604,6 +1609,13 @@ static av_always_inline int process_frame(WriterContext *w,
         nb_streams_frames[pkt->stream_index]++;
         if (do_show_frames)
             show_frame(w, frame, fmt_ctx->streams[pkt->stream_index], fmt_ctx);
+		
+		if(detect_interlace_frames > 0 && dec_ctx->codec_type == AVMEDIA_TYPE_VIDEO) {
+			interlaced_video = frame->interlaced_frame;
+			field_top_first = frame->top_field_first;
+			video_frame_counter++;
+			av_log(NULL, AV_LOG_ERROR, "Detect video frames:%d.\n", video_frame_counter);
+		}
     }
     return got_frame;
 }
@@ -1613,7 +1625,8 @@ static void read_packets(WriterContext *w, AVFormatContext *fmt_ctx)
     AVPacket pkt, pkt1;
     AVFrame frame;
     int i = 0;
-
+	int packet_count = 0;
+	
     av_init_packet(&pkt);
 
     while (!av_read_frame(fmt_ctx, &pkt)) {
@@ -1623,12 +1636,20 @@ static void read_packets(WriterContext *w, AVFormatContext *fmt_ctx)
                     show_packet(w, fmt_ctx, &pkt, i++);
                 nb_streams_packets[pkt.stream_index]++;
             }
-            if (do_read_frames) {
+            if (do_read_frames || detect_interlace_frames > 0) {
                 pkt1 = pkt;
                 while (pkt1.size && process_frame(w, fmt_ctx, &frame, &pkt1) > 0);
             }
         }
         av_free_packet(&pkt);
+		
+		if(video_frame_counter >= detect_interlace_frames) {
+			break;
+		}
+
+		// In case of audio file, prevent from decoding the whole file
+		if(detect_interlace_frames > 0 && packet_count > 60) break;
+		packet_count++;
     }
     av_init_packet(&pkt);
     pkt.data = NULL;
@@ -1636,7 +1657,7 @@ static void read_packets(WriterContext *w, AVFormatContext *fmt_ctx)
     //Flush remaining frames that are cached in the decoder
     for (i = 0; i < fmt_ctx->nb_streams; i++) {
         pkt.stream_index = i;
-        if (do_read_frames)
+        if (do_read_frames && detect_interlace_frames > 0)
             while (process_frame(w, fmt_ctx, &frame, &pkt) > 0);
     }
 }
@@ -1716,6 +1737,8 @@ static void show_stream(WriterContext *w, AVFormatContext *fmt_ctx, int stream_i
             } else {
                 print_str_opt("timecode", "N/A");
             }
+			print_int("interlaced_frame",	interlaced_video);
+        	print_int("top_field_first",    field_top_first);
             break;
 
         case AVMEDIA_TYPE_AUDIO:
@@ -1907,6 +1930,7 @@ static int probe_file(WriterContext *wctx, const char *filename)
 
     do_read_frames = do_show_frames || do_count_frames;
     do_read_packets = do_show_packets || do_count_packets;
+	if(detect_interlace_frames > 0) do_read_frames = 1;
 
     ret = open_input_file(&fmt_ctx, filename);
     if (ret >= 0) {
@@ -1934,7 +1958,7 @@ static int probe_file(WriterContext *wctx, const char *filename)
                 section_id = SECTION_ID_PACKETS_AND_FRAMES;
             else if (do_show_packets && !do_show_frames)
                 section_id = SECTION_ID_PACKETS;
-            else // (!do_show_packets && do_show_frames)
+            else if (!do_show_packets && do_show_frames)
                 section_id = SECTION_ID_FRAMES;
             if (do_show_frames || do_show_packets)
                 writer_print_section_header(wctx, section_id);
@@ -1942,6 +1966,7 @@ static int probe_file(WriterContext *wctx, const char *filename)
             if (do_show_frames || do_show_packets)
                 writer_print_section_footer(wctx);
         }
+		
         if (do_show_streams)
             show_streams(wctx, fmt_ctx);
         if (do_show_format)
@@ -2095,6 +2120,7 @@ static const OptionDef real_options[] = {
       "show a particular entry from the format/container info", "entry" },
     { "show_packets", OPT_BOOL, {&do_show_packets}, "show packets info" },
     { "show_streams", OPT_BOOL, {&do_show_streams}, "show streams info" },
+    { "detect_inter_frames", OPT_INT | HAS_ARG, {&detect_interlace_frames}, "detect video deinterlace info"},
     { "count_frames", OPT_BOOL, {(void*)&do_count_frames}, "count the number of frames per stream" },
     { "count_packets", OPT_BOOL, {(void*)&do_count_packets}, "count the number of packets per stream" },
     { "show_program_version",  OPT_BOOL, {(void*)&do_show_program_version},  "show ffprobe version" },
