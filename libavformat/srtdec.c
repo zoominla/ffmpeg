@@ -23,6 +23,11 @@
 #include "internal.h"
 #include "libavutil/intreadwrite.h"
 
+static inline int is_eol(char c)
+{
+    return c == '\r' || c == '\n';
+}
+
 static int srt_probe(AVProbeData *p)
 {
     unsigned char *ptr = p->buf;
@@ -31,7 +36,11 @@ static int srt_probe(AVProbeData *p)
     if (AV_RB24(ptr) == 0xEFBBBF)
         ptr += 3;  /* skip UTF-8 BOM */
 
-    for (i=0; i<2; i++) {	// Relax probe standard of srt
+	while(*ptr && is_eol(*ptr)) {	/* Remove leading empty line*/
+		ptr++;
+	}
+	
+    for (i=0; i<2; i++) {	/* Relax probe standard of srt*/
         if (num < 50 /*num == i*/ && sscanf(ptr, "%*d:%*2d:%*2d%*1[,.]%*3d --> %*d:%*2d:%*2d%*1[,.]%3d", &v) == 1)
             return AVPROBE_SCORE_MAX;
         num = atoi(ptr);
@@ -72,11 +81,6 @@ static int64_t get_pts(const char *buf, int *duration)
         buf += strcspn(buf, "\n") + 1;
     }
     return AV_NOPTS_VALUE;
-}
-
-static inline int is_eol(char c)
-{
-    return c == '\r' || c == '\n';
 }
 
 static int srt_read_packet(AVFormatContext *s, AVPacket *pkt)
