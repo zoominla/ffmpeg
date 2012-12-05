@@ -256,9 +256,6 @@ static int rtmp_write_amf_data(URLContext *s, char *param, uint8_t **p)
         *value = '\0';
         value++;
 
-        if (!field || !value)
-            goto fail;
-
         ff_amf_write_field_name(p, field);
     } else {
         goto fail;
@@ -2188,7 +2185,7 @@ static int rtmp_open(URLContext *s, const char *uri, int flags)
         } else {
             rt->playpath[0] = 0;
         }
-        strncat(rt->playpath, fname, PLAYPATH_MAX_LENGTH - 5);
+        av_strlcat(rt->playpath, fname, PLAYPATH_MAX_LENGTH);
     }
 
     if (!rt->tcurl) {

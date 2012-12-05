@@ -28,6 +28,7 @@
 #include "libavutil/tree.h"
 #include "avio_internal.h"
 #include "nut.h"
+#include "riff.h"
 
 #define NUT_MAX_STREAMS 256    /* arbitrary sanity check value */
 
@@ -382,6 +383,7 @@ static int decode_stream_header(NUTContext *nut)
         break;
     case 3:
         st->codec->codec_type = AVMEDIA_TYPE_DATA;
+        st->codec->codec_id   = ff_codec_get_id(ff_nut_data_tags, tmp);
         break;
     default:
         av_log(s, AV_LOG_ERROR, "unknown stream class (%d)\n", class);
@@ -789,7 +791,7 @@ static int decode_frame_header(NUTContext *nut, int64_t *pts, int *stream_id,
         if (coded_pts < (1 << stc->msb_pts_shift)) {
             *pts = ff_lsb2full(stc, coded_pts);
         } else
-            *pts = coded_pts - (1 << stc->msb_pts_shift);
+            *pts = coded_pts - (1LL << stc->msb_pts_shift);
     } else
         *pts = stc->last_pts + pts_delta;
     if (flags & FLAG_SIZE_MSB)

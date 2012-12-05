@@ -118,7 +118,7 @@ static void put_ebml_id(AVIOContext *pb, unsigned int id)
 {
     int i = ebml_id_size(id);
     while (i--)
-        avio_w8(pb, id >> (i*8));
+        avio_w8(pb, (uint8_t)(id >> (i*8)));
 }
 
 /**
@@ -166,7 +166,7 @@ static void put_ebml_num(AVIOContext *pb, uint64_t num, int bytes)
 
     num |= 1ULL << bytes*7;
     for (i = bytes - 1; i >= 0; i--)
-        avio_w8(pb, num >> i*8);
+        avio_w8(pb, (uint8_t)(num >> i*8));
 }
 
 static void put_ebml_uint(AVIOContext *pb, unsigned int elementid, uint64_t val)
@@ -178,7 +178,7 @@ static void put_ebml_uint(AVIOContext *pb, unsigned int elementid, uint64_t val)
     put_ebml_id(pb, elementid);
     put_ebml_num(pb, bytes, 0);
     for (i = bytes - 1; i >= 0; i--)
-        avio_w8(pb, val >> i*8);
+        avio_w8(pb, (uint8_t)(val >> i*8));
 }
 
 static void put_ebml_float(AVIOContext *pb, unsigned int elementid, double val)
@@ -1015,8 +1015,8 @@ static int ass_get_duration(const uint8_t *p)
     if (sscanf(p, "%*[^,],%d:%d:%d%*c%d,%d:%d:%d%*c%d",
                &sh, &sm, &ss, &sc, &eh, &em, &es, &ec) != 8)
         return 0;
-    start = 3600000*sh + 60000*sm + 1000*ss + 10*sc;
-    end   = 3600000*eh + 60000*em + 1000*es + 10*ec;
+    start = 3600000LL*sh + 60000LL*sm + 1000LL*ss + 10LL*sc;
+    end   = 3600000LL*eh + 60000LL*em + 1000LL*es + 10LL*ec;
     return end - start;
 }
 
@@ -1166,8 +1166,12 @@ static int mkv_write_packet_internal(AVFormatContext *s, AVPacket *pkt)
     }
 
     if (!s->pb->seekable) {
-        if (!mkv->dyn_bc)
-            avio_open_dyn_buf(&mkv->dyn_bc);
+        if (!mkv->dyn_bc) {
+            if ((ret = avio_open_dyn_buf(&mkv->dyn_bc)) < 0) {
+                av_log(s, AV_LOG_ERROR, "Failed to open dynamic buffer\n");
+                return ret;
+            }
+        }
         pb = mkv->dyn_bc;
     }
 

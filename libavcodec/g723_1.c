@@ -26,8 +26,8 @@
  */
 
 #define BITSTREAM_READER_LE
-#include "libavutil/audioconvert.h"
-#include "libavutil/lzo.h"
+#include "libavutil/channel_layout.h"
+#include "libavutil/mem.h"
 #include "libavutil/opt.h"
 #include "avcodec.h"
 #include "internal.h"
@@ -359,7 +359,7 @@ static void lsp2lpc(int16_t *lpc)
 
     /* Calculate negative cosine */
     for (j = 0; j < LPC_ORDER; j++) {
-        int index     = lpc[j] >> 7;
+        int index     = (lpc[j] >> 7) & 0x1FF;
         int offset    = lpc[j] & 0x7f;
         int temp1     = cos_tab[index] << 16;
         int temp2     = (cos_tab[index + 1] - cos_tab[index]) *
@@ -713,7 +713,7 @@ static void comp_ppf_coeff(G723_1_Context *p, int offset, int pitch_lag,
 
     scale = normalize_bits(temp1, 31);
     for (i = 0; i < 5; i++)
-        energy[i] = av_clipl_int32(energy[i] << scale) >> 16;
+        energy[i] = (energy[i] << scale) >> 16;
 
     if (fwd_lag && !back_lag) {  /* Case 1 */
         comp_ppf_gains(fwd_lag,  ppf, cur_rate, energy[0], energy[1],

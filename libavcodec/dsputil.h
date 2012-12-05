@@ -52,7 +52,7 @@ void ff_j_rev_dct1 (DCTELEM *data);
 void ff_wmv2_idct_c(DCTELEM *data);
 
 void ff_fdct_mmx(DCTELEM *block);
-void ff_fdct_mmx2(DCTELEM *block);
+void ff_fdct_mmxext(DCTELEM *block);
 void ff_fdct_sse2(DCTELEM *block);
 
 #define H264_IDCT(depth) \
@@ -393,16 +393,6 @@ typedef struct DSPContext {
     /* assume len is a multiple of 8, and arrays are 16-byte aligned */
     void (*vector_clipf)(float *dst /* align 16 */, const float *src /* align 16 */, float min, float max, int len /* align 16 */);
     /**
-     * Multiply a vector of floats by a scalar float.  Source and
-     * destination vectors must overlap exactly or not at all.
-     * @param dst result vector, 16-byte aligned
-     * @param src input vector, 16-byte aligned
-     * @param mul scalar value
-     * @param len length of vector, multiple of 4
-     */
-    void (*vector_fmul_scalar)(float *dst, const float *src, float mul,
-                               int len);
-    /**
      * Calculate the scalar product of two vectors of floats.
      * @param v1  first vector, 16-byte aligned
      * @param v2  second vector, 16-byte aligned
@@ -674,7 +664,7 @@ static inline void copy_block2(uint8_t *dst, const uint8_t *src, int dstStride, 
     int i;
     for(i=0; i<h; i++)
     {
-        AV_WN16(dst   , AV_RN16(src   ));
+        AV_COPY16U(dst, src);
         dst+=dstStride;
         src+=srcStride;
     }
@@ -685,7 +675,7 @@ static inline void copy_block4(uint8_t *dst, const uint8_t *src, int dstStride, 
     int i;
     for(i=0; i<h; i++)
     {
-        AV_WN32(dst   , AV_RN32(src   ));
+        AV_COPY32U(dst, src);
         dst+=dstStride;
         src+=srcStride;
     }
@@ -696,8 +686,7 @@ static inline void copy_block8(uint8_t *dst, const uint8_t *src, int dstStride, 
     int i;
     for(i=0; i<h; i++)
     {
-        AV_WN32(dst   , AV_RN32(src   ));
-        AV_WN32(dst+4 , AV_RN32(src+4 ));
+        AV_COPY64U(dst, src);
         dst+=dstStride;
         src+=srcStride;
     }
@@ -708,8 +697,7 @@ static inline void copy_block9(uint8_t *dst, const uint8_t *src, int dstStride, 
     int i;
     for(i=0; i<h; i++)
     {
-        AV_WN32(dst   , AV_RN32(src   ));
-        AV_WN32(dst+4 , AV_RN32(src+4 ));
+        AV_COPY64U(dst, src);
         dst[8]= src[8];
         dst+=dstStride;
         src+=srcStride;
@@ -721,10 +709,7 @@ static inline void copy_block16(uint8_t *dst, const uint8_t *src, int dstStride,
     int i;
     for(i=0; i<h; i++)
     {
-        AV_WN32(dst   , AV_RN32(src   ));
-        AV_WN32(dst+4 , AV_RN32(src+4 ));
-        AV_WN32(dst+8 , AV_RN32(src+8 ));
-        AV_WN32(dst+12, AV_RN32(src+12));
+        AV_COPY128U(dst, src);
         dst+=dstStride;
         src+=srcStride;
     }
@@ -735,10 +720,7 @@ static inline void copy_block17(uint8_t *dst, const uint8_t *src, int dstStride,
     int i;
     for(i=0; i<h; i++)
     {
-        AV_WN32(dst   , AV_RN32(src   ));
-        AV_WN32(dst+4 , AV_RN32(src+4 ));
-        AV_WN32(dst+8 , AV_RN32(src+8 ));
-        AV_WN32(dst+12, AV_RN32(src+12));
+        AV_COPY128U(dst, src);
         dst[16]= src[16];
         dst+=dstStride;
         src+=srcStride;

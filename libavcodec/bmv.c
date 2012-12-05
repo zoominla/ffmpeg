@@ -19,6 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include "libavutil/channel_layout.h"
 #include "avcodec.h"
 #include "bytestream.h"
 #include "libavutil/avassert.h"
@@ -187,8 +188,6 @@ static int decode_bmv_frame(const uint8_t *source, int src_len, uint8_t *frame, 
                 memset(dst, val, len);
             }
             break;
-        default:
-            break;
         }
         if (dst == dst_end)
             return 0;
@@ -200,7 +199,7 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
 {
     BMVDecContext * const c = avctx->priv_data;
     int type, scr_off;
-    int i;
+    int i, ret;
     uint8_t *srcptr, *outptr;
 
     c->stream = pkt->data;
@@ -241,6 +240,15 @@ static int decode_frame(AVCodecContext *avctx, void *data, int *data_size, AVPac
         scr_off = 0;
     }
 
+    if (c->pic.data[0])
+        avctx->release_buffer(avctx, &c->pic);
+
+    c->pic.reference = 3;
+    if ((ret = avctx->get_buffer(avctx, &c->pic)) < 0) {
+        av_log(avctx, AV_LOG_ERROR, "get_buffer() failed\n");
+        return ret;
+    }
+
     if (decode_bmv_frame(c->stream, pkt->size - (c->stream - pkt->data), c->frame, scr_off)) {
         av_log(avctx, AV_LOG_ERROR, "Error decoding frame data\n");
         return AVERROR_INVALIDDATA;
@@ -277,12 +285,6 @@ static av_cold int decode_init(AVCodecContext *avctx)
         return AVERROR_INVALIDDATA;
     }
 
-    c->pic.reference = 1;
-    if (avctx->get_buffer(avctx, &c->pic) < 0) {
-        av_log(avctx, AV_LOG_ERROR, "get_buffer() failed\n");
-        return -1;
-    }
-
     c->frame = c->frame_base + 640;
 
     return 0;
@@ -310,12 +312,9 @@ static av_cold int bmv_aud_decode_init(AVCodecContext *avctx)
 {
     BMVAudioDecContext *c = avctx->priv_data;
 
-    if (avctx->channels != 2) {
-        av_log(avctx, AV_LOG_INFO, "invalid number of channels\n");
-        return AVERROR(EINVAL);
-    }
-
-    avctx->sample_fmt = AV_SAMPLE_FMT_S16;
+    avctx->channels       = 2;
+    avctx->channel_layout = AV_CH_LAYOUT_STEREO;
+    avctx->sample_fmt     = AV_SAMPLE_FMT_S16;
 
     avcodec_get_frame_defaults(&c->frame);
     avctx->coded_frame = &c->frame;

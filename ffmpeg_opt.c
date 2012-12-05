@@ -30,10 +30,10 @@
 #include "libavfilter/avfilter.h"
 #include "libavfilter/avfiltergraph.h"
 
-#include "libavutil/audioconvert.h"
 #include "libavutil/avassert.h"
 #include "libavutil/avstring.h"
 #include "libavutil/avutil.h"
+#include "libavutil/channel_layout.h"
 #include "libavutil/intreadwrite.h"
 #include "libavutil/fifo.h"
 #include "libavutil/mathematics.h"
@@ -159,8 +159,11 @@ static int opt_pad(void *optctx, const char *opt, const char *arg)
 
 static int opt_sameq(void *optctx, const char *opt, const char *arg)
 {
-    av_log(NULL, AV_LOG_WARNING, "Ignoring option '%s'\n", opt);
-    return 0;
+    av_log(NULL, AV_LOG_ERROR, "Option '%s' was removed. "
+           "If you are looking for an option to preserve the quality (which is not "
+           "what -%s was for), use -qscale 0 or an equivalent quality factor option.\n",
+           opt, opt);
+    return AVERROR(EINVAL);
 }
 
 static int opt_video_channel(void *optctx, const char *opt, const char *arg)
@@ -368,6 +371,7 @@ static int opt_map_channel(void *optctx, const char *opt, const char *arg)
 
 /**
  * Parse a metadata specifier passed as 'arg' parameter.
+ * @param arg  metadata string to parse
  * @param type metadata type is written here -- g(lobal)/s(tream)/c(hapter)/p(rogram)
  * @param index for type c/p, chapter/program index is written here
  * @param stream_spec for type s, the stream specifier is written here
@@ -452,9 +456,9 @@ static int copy_metadata(char *outspec, char *inspec, AVFormatContext *oc, AVFor
             METADATA_CHECK_INDEX(index, context->nb_programs, "program")\
             meta = &context->programs[index]->metadata;\
             break;\
-        default: av_assert0(0);\
         case 's':\
-            break;\
+            break; /* handled separately below */ \
+        default: av_assert0(0);\
         }\
 
     SET_DICT(type_in, meta_in, ic, idx_in);
@@ -585,6 +589,8 @@ static void add_input_streams(OptionsContext *o, AVFormatContext *ic)
 
         ist->reinit_filters = -1;
         MATCH_PER_STREAM_OPT(reinit_filters, i, ist->reinit_filters, ic, st);
+
+        ist->filter_in_rescale_delta_last = AV_NOPTS_VALUE;
 
         switch (dec->codec_type) {
         case AVMEDIA_TYPE_VIDEO:
@@ -801,7 +807,7 @@ static int opt_input_file(void *optctx, const char *opt, const char *filename)
 
     /* if seeking requested, we execute it */
     if (o->start_time != 0) {
-        ret = av_seek_frame(ic, -1, timestamp, AVSEEK_FLAG_BACKWARD);
+        ret = avformat_seek_file(ic, -1, INT64_MIN, timestamp, timestamp, 0);
         if (ret < 0) {
             av_log(NULL, AV_LOG_WARNING, "%s: could not seek to position %0.3f\n",
                    filename, (double)timestamp / AV_TIME_BASE);
@@ -913,8 +919,6 @@ static OutputStream *new_output_stream(OptionsContext *o, AVFormatContext *oc, e
     char *bsf = NULL, *next, *codec_tag = NULL;
     AVBitStreamFilterContext *bsfc, *bsfc_prev = NULL;
     double qscale = -1;
-    char *buf = NULL, *arg = NULL, *preset = NULL;
-    AVIOContext *s = NULL;
 
     if (!st) {
         av_log(NULL, AV_LOG_FATAL, "Could not alloc stream.\n");
@@ -936,36 +940,39 @@ static OutputStream *new_output_stream(OptionsContext *o, AVFormatContext *oc, e
     st->codec->codec_type = type;
     choose_encoder(o, oc, ost);
     if (ost->enc) {
+        AVIOContext *s = NULL;
+        char *buf = NULL, *arg = NULL, *preset = NULL;
+
         ost->opts  = filter_codec_opts(codec_opts, ost->enc->id, oc, st, ost->enc);
+
+        MATCH_PER_STREAM_OPT(presets, str, preset, oc, st);
+        if (preset && (!(ret = get_preset_file_2(preset, ost->enc->name, &s)))) {
+            do  {
+                buf = get_line(s);
+                if (!buf[0] || buf[0] == '#') {
+                    av_free(buf);
+                    continue;
+                }
+                if (!(arg = strchr(buf, '='))) {
+                    av_log(NULL, AV_LOG_FATAL, "Invalid line found in the preset file.\n");
+                    exit(1);
+                }
+                *arg++ = 0;
+                av_dict_set(&ost->opts, buf, arg, AV_DICT_DONT_OVERWRITE);
+                av_free(buf);
+            } while (!s->eof_reached);
+            avio_close(s);
+        }
+        if (ret) {
+            av_log(NULL, AV_LOG_FATAL,
+                   "Preset %s specified for stream %d:%d, but could not be opened.\n",
+                   preset, ost->file_index, ost->index);
+            exit(1);
+        }
     }
 
     avcodec_get_context_defaults3(st->codec, ost->enc);
     st->codec->codec_type = type; // XXX hack, avcodec_get_context_defaults2() sets type to unknown for stream copy
-
-    MATCH_PER_STREAM_OPT(presets, str, preset, oc, st);
-    if (preset && (!(ret = get_preset_file_2(preset, ost->enc->name, &s)))) {
-        do  {
-            buf = get_line(s);
-            if (!buf[0] || buf[0] == '#') {
-                av_free(buf);
-                continue;
-            }
-            if (!(arg = strchr(buf, '='))) {
-                av_log(NULL, AV_LOG_FATAL, "Invalid line found in the preset file.\n");
-                exit(1);
-            }
-            *arg++ = 0;
-            av_dict_set(&ost->opts, buf, arg, AV_DICT_DONT_OVERWRITE);
-            av_free(buf);
-        } while (!s->eof_reached);
-        avio_close(s);
-    }
-    if (ret) {
-        av_log(NULL, AV_LOG_FATAL,
-               "Preset %s specified for stream %d:%d, but could not be opened.\n",
-               preset, ost->file_index, ost->index);
-        exit(1);
-    }
 
     ost->max_frames = INT64_MAX;
     MATCH_PER_STREAM_OPT(max_frames, i64, ost->max_frames, oc, st);
@@ -1008,6 +1015,7 @@ static OutputStream *new_output_stream(OptionsContext *o, AVFormatContext *oc, e
         st->codec->flags |= CODEC_FLAG_GLOBAL_HEADER;
 
     av_opt_get_int(sws_opts, "sws_flags", 0, &ost->sws_flags);
+    av_opt_get_int   (swr_opts, "filter_type"  , 0, &ost->swr_filter_type);
     av_opt_get_int   (swr_opts, "dither_method", 0, &ost->swr_dither_method);
     av_opt_get_double(swr_opts, "dither_scale" , 0, &ost->swr_dither_scale);
 
@@ -2244,7 +2252,7 @@ static int opt_progress(void *optctx, const char *opt, const char *arg)
         arg = "pipe:";
     ret = avio_open2(&avio, arg, AVIO_FLAG_WRITE, &int_cb, NULL);
     if (ret < 0) {
-        av_log(0, AV_LOG_ERROR, "Failed to open progress URL \"%s\": %s\n",
+        av_log(NULL, AV_LOG_ERROR, "Failed to open progress URL \"%s\": %s\n",
                arg, av_err2str(ret));
         return ret;
     }

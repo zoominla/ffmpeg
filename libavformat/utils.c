@@ -237,7 +237,7 @@ int ffio_limit(AVIOContext *s, int size)
         }
 
         if(s->maxsize>=0 && remaining+1 < size){
-            av_log(0, remaining ? AV_LOG_ERROR : AV_LOG_DEBUG, "Truncating packet of size %d to %"PRId64"\n", size, remaining+1);
+            av_log(NULL, remaining ? AV_LOG_ERROR : AV_LOG_DEBUG, "Truncating packet of size %d to %"PRId64"\n", size, remaining+1);
             size= remaining+1;
         }
     }
@@ -295,6 +295,10 @@ AVInputFormat *av_probe_input_format3(AVProbeData *pd, int is_opened, int *score
     AVProbeData lpd = *pd;
     AVInputFormat *fmt1 = NULL, *fmt;
     int score, nodat = 0, score_max=0;
+    const static uint8_t zerobuffer[AVPROBE_PADDING_SIZE];
+
+    if (!lpd.buf)
+        lpd.buf = zerobuffer;
 
     if (lpd.buf_size > 10 && ff_id3v2_match(lpd.buf, ID3v2_DEFAULT_MAGIC)) {
         int id3len = ff_id3v2_tag_len(lpd.buf);
@@ -543,7 +547,7 @@ int avformat_open_input(AVFormatContext **ps, const char *filename, AVInputForma
     if (!s && !(s = avformat_alloc_context()))
         return AVERROR(ENOMEM);
     if (!s->av_class){
-        av_log(0, AV_LOG_ERROR, "Input context has not been properly allocated by avformat_alloc_context() and is not NULL either\n");
+        av_log(NULL, AV_LOG_ERROR, "Input context has not been properly allocated by avformat_alloc_context() and is not NULL either\n");
         return AVERROR(EINVAL);
     }
     if (fmt)
@@ -557,6 +561,7 @@ int avformat_open_input(AVFormatContext **ps, const char *filename, AVInputForma
 
     if ((ret = init_input(s, filename, &tmp)) < 0)
         goto fail;
+    avio_skip(s->pb, s->skip_initial_bytes);
 
     /* check filename in case an image number is expected */
     if (s->iformat->flags & AVFMT_NEEDNUMBER) {
@@ -821,7 +826,10 @@ void ff_compute_frame_duration(int *pnum, int *pden, AVStream *st,
             *pnum = st->codec->time_base.num;
             *pden = st->codec->time_base.den;
             if (pc && pc->repeat_pict) {
-                *pnum = (*pnum) * (1 + pc->repeat_pict);
+                if (*pnum > INT_MAX / (1 + pc->repeat_pict))
+                    *pden /= 1 + pc->repeat_pict;
+                else
+                    *pnum *= 1 + pc->repeat_pict;
             }
             //If this codec can be interlaced or progressive then we need a parser to compute duration of a packet
             //Thus if we have no parser in such case leave duration undefined.
@@ -2045,6 +2053,7 @@ static void update_stream_timings(AVFormatContext *ic)
     int64_t duration, duration1, filesize;
     int i;
     AVStream *st;
+    AVProgram *p;
 
     start_time = INT64_MAX;
     start_time_text = INT64_MAX;
@@ -2059,10 +2068,17 @@ static void update_stream_timings(AVFormatContext *ic)
                     start_time_text = start_time1;
             } else
                 start_time = FFMIN(start_time, start_time1);
+            end_time1 = AV_NOPTS_VALUE;
             if (st->duration != AV_NOPTS_VALUE) {
                 end_time1 = start_time1
                           + av_rescale_q(st->duration, st->time_base, AV_TIME_BASE_Q);
                 end_time = FFMAX(end_time, end_time1);
+            }
+            for(p = NULL; (p = av_find_program_from_stream(ic, p, i)); ){
+                if(p->start_time == AV_NOPTS_VALUE || p->start_time > start_time1)
+                    p->start_time = start_time1;
+                if(p->end_time < end_time1)
+                    p->end_time = end_time1;
             }
         }
         if (st->duration != AV_NOPTS_VALUE) {
@@ -2077,8 +2093,16 @@ static void update_stream_timings(AVFormatContext *ic)
 
     if (start_time != INT64_MAX) {
         ic->start_time = start_time;
-        if (end_time != INT64_MIN)
-            duration = FFMAX(duration, end_time - start_time);
+        if (end_time != INT64_MIN) {
+            if (ic->nb_programs) {
+                for (i=0; i<ic->nb_programs; i++) {
+                    p = ic->programs[i];
+                    if(p->start_time != AV_NOPTS_VALUE && p->end_time > p->start_time)
+                        duration = FFMAX(duration, p->end_time - p->start_time);
+                }
+            } else
+                duration = FFMAX(duration, end_time - start_time);
+        }
     }
     if (duration != INT64_MIN && duration > 0 && ic->duration == AV_NOPTS_VALUE) {
         ic->duration = duration;
@@ -2139,8 +2163,8 @@ static void estimate_timings_from_bit_rate(AVFormatContext *ic)
     }
 }
 
-#define DURATION_MAX_READ_SIZE 250000
-#define DURATION_MAX_RETRY 3
+#define DURATION_MAX_READ_SIZE 250000LL
+#define DURATION_MAX_RETRY 4
 
 /* only usable for MPEG-PS streams */
 static void estimate_timings_from_pts(AVFormatContext *ic, int64_t old_offset)
@@ -2414,6 +2438,37 @@ enum AVCodecID ff_codec_get_id(const AVCodecTag *tags, unsigned int tag)
             return tags[i].id;
     }
     return AV_CODEC_ID_NONE;
+}
+
+enum AVCodecID ff_get_pcm_codec_id(int bps, int flt, int be, int sflags)
+{
+    if (flt) {
+        switch (bps) {
+        case 32: return be ? AV_CODEC_ID_PCM_F32BE : AV_CODEC_ID_PCM_F32LE;
+        case 64: return be ? AV_CODEC_ID_PCM_F64BE : AV_CODEC_ID_PCM_F64LE;
+        default: return AV_CODEC_ID_NONE;
+        }
+    } else {
+        bps  += 7;
+        bps >>= 3;
+        if (sflags & (1 << (bps - 1))) {
+            switch (bps) {
+            case 1:  return AV_CODEC_ID_PCM_S8;
+            case 2:  return be ? AV_CODEC_ID_PCM_S16BE : AV_CODEC_ID_PCM_S16LE;
+            case 3:  return be ? AV_CODEC_ID_PCM_S24BE : AV_CODEC_ID_PCM_S24LE;
+            case 4:  return be ? AV_CODEC_ID_PCM_S32BE : AV_CODEC_ID_PCM_S32LE;
+            default: return AV_CODEC_ID_NONE;
+            }
+        } else {
+            switch (bps) {
+            case 1:  return AV_CODEC_ID_PCM_U8;
+            case 2:  return be ? AV_CODEC_ID_PCM_U16BE : AV_CODEC_ID_PCM_U16LE;
+            case 3:  return be ? AV_CODEC_ID_PCM_U24BE : AV_CODEC_ID_PCM_U24LE;
+            case 4:  return be ? AV_CODEC_ID_PCM_U32BE : AV_CODEC_ID_PCM_U32LE;
+            default: return AV_CODEC_ID_NONE;
+            }
+        }
+    }
 }
 
 unsigned int av_codec_get_tag(const AVCodecTag * const *tags, enum AVCodecID id)
@@ -2705,7 +2760,7 @@ int avformat_find_stream_info(AVFormatContext *ic, AVDictionary **options)
                     int framerate= get_std_framerate(i);
                     double sdts= dts*framerate/(1001*12);
                     for(j=0; j<2; j++){
-                        int ticks= lrintf(sdts+j*0.5);
+                        int64_t ticks= llrint(sdts+j*0.5);
                         double error= sdts - ticks + j*0.5;
                         st->info->duration_error[j][0][i] += error;
                         st->info->duration_error[j][1][i] += error*error;
@@ -2713,7 +2768,7 @@ int avformat_find_stream_info(AVFormatContext *ic, AVDictionary **options)
                 }
                 st->info->duration_count++;
                 // ignore the first 4 values, they might have some random jitter
-                if (st->info->duration_count > 3)
+                if (st->info->duration_count > 3 && is_relative(pkt->dts) == is_relative(last))
                     st->info->duration_gcd = av_gcd(st->info->duration_gcd, duration);
             }
             if (pkt->dts != AV_NOPTS_VALUE)
@@ -2929,7 +2984,7 @@ int av_find_best_stream(AVFormatContext *ic,
                         int flags)
 {
     int i, nb_streams = ic->nb_streams;
-    int ret = AVERROR_STREAM_NOT_FOUND, best_count = -1;
+    int ret = AVERROR_STREAM_NOT_FOUND, best_count = -1, best_bitrate = -1, best_multiframe = -1, count, bitrate, multiframe;
     unsigned *program = NULL;
     AVCodec *decoder = NULL, *best_decoder = NULL;
 
@@ -2958,9 +3013,16 @@ int av_find_best_stream(AVFormatContext *ic,
                 continue;
             }
         }
-        if (best_count >= st->codec_info_nb_frames)
+        count = st->codec_info_nb_frames;
+        bitrate = avctx->bit_rate;
+        multiframe = FFMIN(5, count);
+        if ((best_multiframe >  multiframe) ||
+            (best_multiframe == multiframe && best_bitrate >  bitrate) ||
+            (best_multiframe == multiframe && best_bitrate == bitrate && best_count >= count))
             continue;
-        best_count = st->codec_info_nb_frames;
+        best_count = count;
+        best_bitrate = bitrate;
+        best_multiframe = multiframe;
         ret = real_stream_index;
         best_decoder = decoder;
         if (program && i == nb_streams - 1 && ret < 0) {
@@ -3017,6 +3079,9 @@ void ff_free_stream(AVFormatContext *s, AVStream *st){
 void avformat_free_context(AVFormatContext *s)
 {
     int i;
+
+    if (!s)
+        return;
 
     av_opt_free(s);
     if (s->iformat && s->iformat->priv_class && s->priv_data)
@@ -3082,7 +3147,7 @@ AVStream *av_new_stream(AVFormatContext *s, int id)
 }
 #endif
 
-AVStream *avformat_new_stream(AVFormatContext *s, AVCodec *c)
+AVStream *avformat_new_stream(AVFormatContext *s, const AVCodec *c)
 {
     AVStream *st;
     int i;
@@ -3158,6 +3223,9 @@ AVProgram *av_new_program(AVFormatContext *ac, int id)
         program->discard = AVDISCARD_NONE;
     }
     program->id = id;
+
+    program->start_time =
+    program->end_time   = AV_NOPTS_VALUE;
 
     return program;
 }
@@ -3332,8 +3400,9 @@ void av_dump_format(AVFormatContext *ic,
         av_log(NULL, AV_LOG_INFO, "  Duration: ");
         if (ic->duration != AV_NOPTS_VALUE) {
             int hours, mins, secs, us;
-            secs = ic->duration / AV_TIME_BASE;
-            us = ic->duration % AV_TIME_BASE;
+            int64_t duration = ic->duration + 5000;
+            secs = duration / AV_TIME_BASE;
+            us = duration % AV_TIME_BASE;
             mins = secs / 60;
             secs %= 60;
             hours = mins / 60;
@@ -3558,7 +3627,7 @@ void av_url_split(char *proto, int proto_size,
                   char *path, int path_size,
                   const char *url)
 {
-    const char *p, *ls, *ls2, *at, *col, *brk;
+    const char *p, *ls, *ls2, *at, *at2, *col, *brk;
 
     if (port_ptr)               *port_ptr = -1;
     if (proto_size > 0)         proto[0] = 0;
@@ -3593,9 +3662,10 @@ void av_url_split(char *proto, int proto_size,
     /* the rest is hostname, use that to parse auth/port */
     if (ls != p) {
         /* authorization (user[:pass]@hostname) */
-        if ((at = strchr(p, '@')) && at < ls) {
-            av_strlcpy(authorization, p,
-                       FFMIN(authorization_size, at + 1 - p));
+        at2 = p;
+        while ((at = strchr(p, '@')) && at < ls) {
+            av_strlcpy(authorization, at2,
+                       FFMIN(authorization_size, at + 1 - at2));
             p = at + 1; /* skip '@' */
         }
 

@@ -30,6 +30,8 @@
 #include "libavutil/pixfmt.h"
 #include "avcodec.h"
 
+#define FF_SANE_NB_CHANNELS 128U
+
 typedef struct InternalBuffer {
     uint8_t *base[AV_NUM_DATA_POINTERS];
     uint8_t *data[AV_NUM_DATA_POINTERS];
@@ -95,11 +97,6 @@ struct AVCodecDefault {
     const uint8_t *key;
     const uint8_t *value;
 };
-
-/**
- * Determine whether pix_fmt is a hardware accelerated format.
- */
-int ff_is_hwaccel_pix_fmt(enum AVPixelFormat pix_fmt);
 
 /**
  * Return the hardware accelerated codec for codec codec_id and
@@ -177,5 +174,17 @@ int ff_thread_can_start_frame(AVCodecContext *avctx);
 int ff_get_logical_cpus(AVCodecContext *avctx);
 
 int avpriv_h264_has_num_reorder_frames(AVCodecContext *avctx);
+
+/**
+ * Call avcodec_open2 recursively by decrementing counter, unlocking mutex,
+ * calling the function and then restoring again. Assumes the mutex is
+ * already locked
+ */
+int ff_codec_open2_recursive(AVCodecContext *avctx, const AVCodec *codec, AVDictionary **options);
+
+/**
+ * Call avcodec_close recursively, counterpart to avcodec_open2_recursive.
+ */
+int ff_codec_close_recursive(AVCodecContext *avctx);
 
 #endif /* AVCODEC_INTERNAL_H */
