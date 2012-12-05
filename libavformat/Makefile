@@ -25,6 +25,25 @@ OBJS = allformats.o         \
        utils.o              \
 
 OBJS-$(CONFIG_NETWORK)                   += network.o
+OBJS-$(CONFIG_RTPDEC)                    += rdt.o                       \
+                                            rtp.o                       \
+                                            rtpdec.o                    \
+                                            rtpdec_amr.o                \
+                                            rtpdec_asf.o                \
+                                            rtpdec_g726.o               \
+                                            rtpdec_h263.o               \
+                                            rtpdec_h263_rfc2190.o       \
+                                            rtpdec_h264.o               \
+                                            rtpdec_ilbc.o               \
+                                            rtpdec_jpeg.o               \
+                                            rtpdec_latm.o               \
+                                            rtpdec_mpeg4.o              \
+                                            rtpdec_qcelp.o              \
+                                            rtpdec_qdm2.o               \
+                                            rtpdec_qt.o                 \
+                                            rtpdec_svq3.o               \
+                                            rtpdec_vp8.o                \
+                                            rtpdec_xiph.o
 
 # muxers/demuxers
 OBJS-$(CONFIG_A64_MUXER)                 += a64.o rawenc.o
@@ -51,7 +70,8 @@ OBJS-$(CONFIG_ASF_DEMUXER)               += asfdec.o asf.o asfcrypt.o \
 OBJS-$(CONFIG_ASF_MUXER)                 += asfenc.o asf.o
 OBJS-$(CONFIG_ASS_DEMUXER)               += assdec.o
 OBJS-$(CONFIG_ASS_MUXER)                 += assenc.o
-OBJS-$(CONFIG_AST_DEMUXER)               += ast.o
+OBJS-$(CONFIG_AST_DEMUXER)               += ast.o astdec.o
+OBJS-$(CONFIG_AST_MUXER)                 += ast.o astenc.o
 OBJS-$(CONFIG_AU_DEMUXER)                += au.o pcm.o
 OBJS-$(CONFIG_AU_MUXER)                  += au.o
 OBJS-$(CONFIG_AVI_DEMUXER)               += avidec.o
@@ -292,25 +312,6 @@ OBJS-$(CONFIG_RTP_MUXER)                 += rtp.o         \
                                             rtpenc_vp8.o  \
                                             rtpenc_xiph.o \
                                             avc.o
-OBJS-$(CONFIG_RTPDEC)                    += rdt.o         \
-                                            rtp.o         \
-                                            rtpdec.o      \
-                                            rtpdec_amr.o  \
-                                            rtpdec_asf.o  \
-                                            rtpdec_g726.o \
-                                            rtpdec_h263.o \
-                                            rtpdec_h263_rfc2190.o \
-                                            rtpdec_h264.o \
-                                            rtpdec_ilbc.o \
-                                            rtpdec_jpeg.o \
-                                            rtpdec_latm.o \
-                                            rtpdec_mpeg4.o \
-                                            rtpdec_qcelp.o \
-                                            rtpdec_qdm2.o \
-                                            rtpdec_qt.o   \
-                                            rtpdec_svq3.o \
-                                            rtpdec_vp8.o  \
-                                            rtpdec_xiph.o
 OBJS-$(CONFIG_RTSP_DEMUXER)              += rtsp.o rtspdec.o httpauth.o \
                                             urldecode.o
 OBJS-$(CONFIG_RTSP_MUXER)                += rtsp.o rtspenc.o httpauth.o \

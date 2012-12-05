@@ -19,11 +19,12 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#ifndef AVFORMAT_AST_H
+#define AVFORMAT_AST_H
+
 #include "avformat.h"
 #include "internal.h"
 
-const AVCodecTag ff_codec_ast_tags[] = {
-    { AV_CODEC_ID_ADPCM_AFC,          0 },
-    { AV_CODEC_ID_PCM_S16BE_PLANAR,   1 },
-    { AV_CODEC_ID_NONE,               0 },
-};
+extern const AVCodecTag ff_codec_ast_tags[];
+
+#endif /* AVFORMAT_AST_H */
