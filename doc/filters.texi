@@ -411,11 +411,71 @@ Pass the audio source unchanged to the output.
 
 @section aresample
 
-Resample the input audio to the specified sample rate.
+Resample the input audio to the specified parameters. If none are specified
+then the filter will automatically convert between its input
+and output.
 
-The filter accepts exactly one parameter, the output sample rate. If not
-specified then the filter will automatically convert between its input
-and output sample rates.
+This filter is also able to stretch/squeeze the audio data to make it match
+the timestamps or to inject silence / cut out audio to make it match the
+timestamps, do a combination of both or do neither.
+
+The filter accepts the following named parameters:
+@table @option
+
+@item min_comp
+Minimum difference between timestamps and audio data (in seconds) to trigger
+stretching/squeezing/filling or trimming of the data to make it match the
+timestamps. The default is that stretching/squeezing/filling and
+trimming is disabled (min_comp = infinite).
+
+@item min_hard_comp
+Minimum difference between timestamps and audio data (in seconds) to trigger
+adding/dropping samples to make it match the timestamps.
+This option effectively is a threshold to select between hard (trim/fill) and
+soft (squeeze/stretch) compensation. Note that all compensation is by default
+disabled through min_comp.
+The default is 0.1 seconds.
+
+@item max_soft_comp
+Maximum stretch/squeeze factor.
+Default value 0.
+
+@item tsf, internal_sample_fmt
+Internal sampling format.
+Default is automatic selection
+
+@item clev, center_mix_level
+center mix level, for rematrixing
+Default is 3.0dB
+
+@item slev, surround_mix_level
+surround mix level, for rematrixing
+Default is 3.0dB
+
+@item rmvol, rematrix_volume
+rematrix volume
+Default is 1.0
+
+@item lfe_mix_level
+Low frequency effects mix level.
+Default is 0
+
+@item matrix_encoding
+matrixed stereo encoding
+@table @option
+@item none
+No matrixed stereo encoding
+
+@item dolby
+Dolby matrixed stereo encoding
+
+@item dolby
+Dolby Pro Logic II matrixed stereo encoding
+@end table
+
+Default value is @code{none}.
+
+@end table
 
 For example, to resample the input audio to 44100Hz:
 @example
@@ -701,96 +761,6 @@ tolerance in @file{silence.mp3}:
 ffmpeg -f lavfi -i amovie=silence.mp3,silencedetect=noise=0.0001 -f null -
 @end example
 
-@section volume
-
-Adjust the input audio volume.
-
-The filter accepts exactly one parameter @var{vol}, which expresses
-how the audio volume will be increased or decreased.
-
-Output values are clipped to the maximum value.
-
-If @var{vol} is expressed as a decimal number, the output audio
-volume is given by the relation:
-@example
-@var{output_volume} = @var{vol} * @var{input_volume}
-@end example
-
-If @var{vol} is expressed as a decimal number followed by the string
-"dB", the value represents the requested change in decibels of the
-input audio power, and the output audio volume is given by the
-relation:
-@example
-@var{output_volume} = 10^(@var{vol}/20) * @var{input_volume}
-@end example
-
-Otherwise @var{vol} is considered an expression and its evaluated
-value is used for computing the output audio volume according to the
-first relation.
-
-Default value for @var{vol} is 1.0.
-
-@subsection Examples
-
-@itemize
-@item
-Half the input audio volume:
-@example
-volume=0.5
-@end example
-
-The above example is equivalent to:
-@example
-volume=1/2
-@end example
-
-@item
-Decrease input audio power by 12 decibels:
-@example
-volume=-12dB
-@end example
-@end itemize
-
-@section volumedetect
-
-Detect the volume of the input video.
-
-The filter has no parameters. The input is not modified. Statistics about
-the volume will be printed in the log when the input stream end is reached.
-
-In particular it will show the mean volume (root mean square), maximum
-volume (on a per-sample basis), and the beginning of an histogram of the
-registered volume values (from the maximum value to a cumulated 1/1000 of
-the samples).
-
-All volumes are in decibels relative to the maximum PCM value.
-
-Here is an excerpt of the output:
-@example
-[Parsed_volumedetect_0 @ 0xa23120] mean_volume: -27 dB
-[Parsed_volumedetect_0 @ 0xa23120] max_volume: -4 dB
-[Parsed_volumedetect_0 @ 0xa23120] histogram_4db: 6
-[Parsed_volumedetect_0 @ 0xa23120] histogram_5db: 62
-[Parsed_volumedetect_0 @ 0xa23120] histogram_6db: 286
-[Parsed_volumedetect_0 @ 0xa23120] histogram_7db: 1042
-[Parsed_volumedetect_0 @ 0xa23120] histogram_8db: 2551
-[Parsed_volumedetect_0 @ 0xa23120] histogram_9db: 4609
-[Parsed_volumedetect_0 @ 0xa23120] histogram_10db: 8409
-@end example
-
-It means that:
-@itemize
-@item
-The mean square energy is approximately -27 dB, or 10^-2.7.
-@item
-The largest sample is at -4 dB, or more precisely between -4 dB and -5 dB.
-@item
-There are 6 samples at -4 dB, 62 at -5 dB, 286 at -6 dB, etc.
-@end itemize
-
-In other words, raising the volume by +4 dB does not cause any clipping,
-raising it by +5 dB causes clipping for 6 samples, etc.
-
 @section asyncts
 Synchronize audio data with timestamps by squeezing/stretching it and/or
 dropping samples/adding silence when needed.
@@ -918,6 +888,111 @@ out
 @section resample
 Convert the audio sample format, sample rate and channel layout. This filter is
 not meant to be used directly.
+
+@section volume
+
+Adjust the input audio volume.
+
+The filter accepts the following named parameters. If the key of the
+first options is omitted, the arguments are interpreted according to
+the following syntax:
+@example
+volume=@var{volume}:@var{precision}
+@end example
+
+@table @option
+
+@item volume
+Expresses how the audio volume will be increased or decreased.
+
+Output values are clipped to the maximum value.
+
+The output audio volume is given by the relation:
+@example
+@var{output_volume} = @var{volume} * @var{input_volume}
+@end example
+
+Default value for @var{volume} is 1.0.
+
+@item precision
+Set the mathematical precision.
+
+This determines which input sample formats will be allowed, which affects the
+precision of the volume scaling.
+
+@table @option
+@item fixed
+8-bit fixed-point; limits input sample format to U8, S16, and S32.
+@item float
+32-bit floating-point; limits input sample format to FLT. (default)
+@item double
+64-bit floating-point; limits input sample format to DBL.
+@end table
+@end table
+
+@subsection Examples
+
+@itemize
+@item
+Halve the input audio volume:
+@example
+volume=volume=0.5
+volume=volume=1/2
+volume=volume=-6.0206dB
+@end example
+
+In all the above example the named key for @option{volume} can be
+omitted, for example like in:
+@example
+volume=0.5
+@end example
+
+@item
+Increase input audio power by 6 decibels using fixed-point precision:
+@example
+volume=volume=6dB:precision=fixed
+@end example
+@end itemize
+
+@section volumedetect
+
+Detect the volume of the input video.
+
+The filter has no parameters. The input is not modified. Statistics about
+the volume will be printed in the log when the input stream end is reached.
+
+In particular it will show the mean volume (root mean square), maximum
+volume (on a per-sample basis), and the beginning of an histogram of the
+registered volume values (from the maximum value to a cumulated 1/1000 of
+the samples).
+
+All volumes are in decibels relative to the maximum PCM value.
+
+Here is an excerpt of the output:
+@example
+[Parsed_volumedetect_0 @ 0xa23120] mean_volume: -27 dB
+[Parsed_volumedetect_0 @ 0xa23120] max_volume: -4 dB
+[Parsed_volumedetect_0 @ 0xa23120] histogram_4db: 6
+[Parsed_volumedetect_0 @ 0xa23120] histogram_5db: 62
+[Parsed_volumedetect_0 @ 0xa23120] histogram_6db: 286
+[Parsed_volumedetect_0 @ 0xa23120] histogram_7db: 1042
+[Parsed_volumedetect_0 @ 0xa23120] histogram_8db: 2551
+[Parsed_volumedetect_0 @ 0xa23120] histogram_9db: 4609
+[Parsed_volumedetect_0 @ 0xa23120] histogram_10db: 8409
+@end example
+
+It means that:
+@itemize
+@item
+The mean square energy is approximately -27 dB, or 10^-2.7.
+@item
+The largest sample is at -4 dB, or more precisely between -4 dB and -5 dB.
+@item
+There are 6 samples at -4 dB, 62 at -5 dB, 286 at -6 dB, etc.
+@end itemize
+
+In other words, raising the volume by +4 dB does not cause any clipping,
+raising it by +5 dB causes clipping for 6 samples, etc.
 
 @c man end AUDIO FILTERS
 
@@ -2811,7 +2886,6 @@ the named filter.
 
 The list of the currently supported filters follows:
 @table @var
-@item denoise3d
 @item detc
 @item dint
 @item divtc
@@ -3617,7 +3691,10 @@ output frames. It does not change the input frame, but only sets the
 corresponding property, which affects how the frame is treated by
 following filters (e.g. @code{fieldorder} or @code{yadif}).
 
-It accepts a string parameter, which can assume the following values:
+This filter accepts a single option @option{mode}, which can be
+specified either by setting @code{mode=VALUE} either setting the
+value alone. Available values are:
+
 @table @samp
 @item auto
 Keep the same field property.
@@ -3865,8 +3942,9 @@ Perform various types of temporal field interlacing.
 Frames are counted starting from 1, so the first input frame is
 considered odd.
 
-This filter accepts a single parameter specifying the mode. Available
-modes are:
+This filter accepts a single option @option{mode} specifying the mode,
+which can be specified either by specyfing @code{mode=VALUE} either
+specifying the value alone. Available values are:
 
 @table @samp
 @item merge, 0

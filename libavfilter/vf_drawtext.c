@@ -47,8 +47,6 @@
 #include "internal.h"
 #include "video.h"
 
-#undef time
-
 #include <ft2build.h>
 #include <freetype/config/ftheader.h>
 #include FT_FREETYPE_H
@@ -1003,7 +1001,7 @@ static int filter_frame(AVFilterLink *inlink, AVFilterBufferRef *frame)
 
     dtext->var_values[VAR_N] += 1.0;
 
-    return ff_filter_frame(inlink->dst->outputs[0], frame);
+    return ff_filter_frame(outlink, frame);
 }
 
 static const AVFilterPad avfilter_vf_drawtext_inputs[] = {

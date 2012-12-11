@@ -413,6 +413,7 @@ int av_probe_input_buffer(AVIOContext *pb, AVInputFormat **fmt,
 {
     AVProbeData pd = { filename ? filename : "", NULL, -offset };
     unsigned char *buf = NULL;
+    uint8_t *mime_type;
     int ret = 0, probe_size, buf_offset = 0;
 
     if (!max_probe_size) {
@@ -425,6 +426,13 @@ int av_probe_input_buffer(AVIOContext *pb, AVInputFormat **fmt,
 
     if (offset >= max_probe_size) {
         return AVERROR(EINVAL);
+    }
+
+    if (!*fmt && pb->av_class && av_opt_get(pb, "mime_type", AV_OPT_SEARCH_CHILDREN, &mime_type) >= 0 && mime_type) {
+        if (!av_strcasecmp(mime_type, "audio/aacp")) {
+            *fmt = av_find_input_format("aac");
+        }
+        av_freep(&mime_type);
     }
 
     for(probe_size= PROBE_BUF_MIN; probe_size<=max_probe_size && !*fmt;
@@ -3530,7 +3538,6 @@ static void hex_dump_internal(void *avcl, FILE *f, int level,
                               const uint8_t *buf, int size)
 {
     int len, i, j, c;
-#undef fprintf
 #define PRINT(...) do { if (!f) av_log(avcl, level, __VA_ARGS__); else fprintf(f, __VA_ARGS__); } while(0)
 
     for(i=0;i<size;i+=16) {
@@ -3568,7 +3575,6 @@ void av_hex_dump_log(void *avcl, int level, const uint8_t *buf, int size)
 
 static void pkt_dump_internal(void *avcl, FILE *f, int level, AVPacket *pkt, int dump_payload, AVRational time_base)
 {
-#undef fprintf
 #define PRINT(...) do { if (!f) av_log(avcl, level, __VA_ARGS__); else fprintf(f, __VA_ARGS__); } while(0)
     PRINT("stream #%d:\n", pkt->stream_index);
     PRINT("  keyframe=%d\n", ((pkt->flags & AV_PKT_FLAG_KEY) != 0));
