@@ -3,6 +3,9 @@ releases are sorted from youngest to oldest.
 
 version <next>:
 
+
+version 1.1:
+
 - stream disposition information printing in ffprobe
 - filter for loudness analysis following EBU R128
 - Opus encoder using libopus
@@ -40,6 +43,26 @@ version <next>:
 - Virtual concatenation demuxer
 - VobSub demuxer
 - JSON captions for TED talks decoding support
+- SOX Resampler support in libswresample
+- aselect filter
+- SGI RLE 8-bit decoder
+- Silicon Graphics Motion Video Compressor 1 & 2 decoder
+- Silicon Graphics Movie demuxer
+- apad filter
+- Resolution & pixel format change support with multithreading for H.264
+- documentation split into per-component manuals
+- pp (postproc) filter ported from MPlayer
+- NIST Sphere demuxer
+- MPL2, VPlayer, MPlayer, AQTitle, PJS and SubViewer v1 subtitles demuxers and decoders
+- Sony Wave64 muxer
+- adobe and limelight publisher authentication in RTMP
+- data: URI scheme
+- support building on the Plan 9 operating system
+- kerndeint filter ported from MPlayer
+- histeq filter ported from VirtualDub
+- Megalux Frame demuxer
+- 012v decoder
+- Improved AVC Intra decoding support
 
 
 version 1.0:
@@ -150,6 +173,7 @@ version 0.11:
 - vorbis parser
 - png parser
 - audio mix filter
+- ffv1: support (draft) version 1.3
 
 
 version 0.10:

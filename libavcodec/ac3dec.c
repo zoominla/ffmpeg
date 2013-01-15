@@ -546,7 +546,7 @@ static void decode_transform_coeffs(AC3DecodeContext *s, int blk)
     for (ch = 1; ch <= s->channels; ch++) {
         /* transform coefficients for full-bandwidth channel */
         decode_transform_coeffs_ch(s, blk, ch, &m);
-        /* tranform coefficients for coupling channel come right after the
+        /* transform coefficients for coupling channel come right after the
            coefficients for the first coupled channel*/
         if (s->channel_in_cpl[ch])  {
             if (!got_cplchan) {
@@ -1386,12 +1386,11 @@ static int ac3_decode_frame(AVCodecContext * avctx, void *data,
     channel_map = ff_ac3_dec_channel_map[s->output_mode & ~AC3_OUTPUT_LFEON][s->lfe_on];
     for (ch = 0; ch < AC3_MAX_CHANNELS; ch++) {
         output[ch] = s->output[ch];
+        s->outptr[ch] = s->output[ch];
     }
     for (ch = 0; ch < s->channels; ch++) {
         if (ch < s->out_channels)
             s->outptr[channel_map[ch]] = (float *)s->frame.data[ch];
-        else
-            s->outptr[ch] = s->output[ch];
     }
     for (blk = 0; blk < s->num_blocks; blk++) {
         if (!err && decode_audio_block(s, blk)) {
@@ -1401,11 +1400,11 @@ static int ac3_decode_frame(AVCodecContext * avctx, void *data,
         if (err)
             for (ch = 0; ch < s->out_channels; ch++)
                 memcpy(((float*)s->frame.data[ch]) + AC3_BLOCK_SIZE*blk, output[ch], 1024);
-        for (ch = 0; ch < s->out_channels; ch++) {
+        for (ch = 0; ch < s->out_channels; ch++)
             output[ch] = s->outptr[channel_map[ch]];
-        }
-        for (ch = 0; ch < s->channels; ch++) {
-            s->outptr[ch] += AC3_BLOCK_SIZE;
+        for (ch = 0; ch < s->out_channels; ch++) {
+            if (!ch || channel_map[ch])
+                s->outptr[channel_map[ch]] += AC3_BLOCK_SIZE;
         }
     }
 

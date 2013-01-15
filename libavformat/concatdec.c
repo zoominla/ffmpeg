@@ -68,10 +68,12 @@ static int add_file(AVFormatContext *avf, char *filename, ConcatFile **rfile,
     av_free(filename);
 
     if (cat->nb_files >= *nb_files_alloc) {
-        unsigned n = FFMAX(*nb_files_alloc * 2, 16);
-        if (n <= cat->nb_files ||
-            !(cat->files = av_realloc_f(cat->files, n, sizeof(*cat->files))))
+        size_t n = FFMAX(*nb_files_alloc * 2, 16);
+        ConcatFile *new_files;
+        if (n <= cat->nb_files || n > SIZE_MAX / sizeof(*cat->files) ||
+            !(new_files = av_realloc(cat->files, n * sizeof(*cat->files))))
             return AVERROR(ENOMEM);
+        cat->files = new_files;
         *nb_files_alloc = n;
     }
 

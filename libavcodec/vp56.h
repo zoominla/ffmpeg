@@ -30,6 +30,7 @@
 #include "dsputil.h"
 #include "get_bits.h"
 #include "bytestream.h"
+#include "videodsp.h"
 #include "vp3dsp.h"
 #include "vp56dsp.h"
 
@@ -39,6 +40,8 @@ typedef struct VP56mv {
     DECLARE_ALIGNED(4, int16_t, x);
     int16_t y;
 } VP56mv;
+
+#define VP56_SIZE_CHANGE 1
 
 typedef void (*VP56ParseVectorAdjustment)(VP56Context *s,
                                           VP56mv *vect);
@@ -92,6 +95,7 @@ typedef struct VP56Model {
 struct vp56_context {
     AVCodecContext *avctx;
     DSPContext dsp;
+    VideoDSPContext vdsp;
     VP3DSPContext vp3dsp;
     VP56DSPContext vp56dsp;
     ScanTable scantable;

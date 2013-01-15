@@ -367,10 +367,11 @@ int ff_h264_decode_seq_parameter_set(H264Context *h){
     sps->scaling_matrix_present = 0;
     sps->colorspace = 2; //AVCOL_SPC_UNSPECIFIED
 
-    if(sps->profile_idc == 100 || sps->profile_idc == 110 ||
-       sps->profile_idc == 122 || sps->profile_idc == 244 || sps->profile_idc ==  44 ||
-       sps->profile_idc ==  83 || sps->profile_idc ==  86 || sps->profile_idc == 118 ||
-       sps->profile_idc == 128 || sps->profile_idc == 144) {
+    if (sps->profile_idc == 100 || sps->profile_idc == 110 ||
+        sps->profile_idc == 122 || sps->profile_idc == 244 ||
+        sps->profile_idc ==  44 || sps->profile_idc ==  83 ||
+        sps->profile_idc ==  86 || sps->profile_idc == 118 ||
+        sps->profile_idc == 128 || sps->profile_idc == 144) {
         sps->chroma_format_idc= get_ue_golomb_31(&s->gb);
         if (sps->chroma_format_idc > 3U) {
             av_log(h->s.avctx, AV_LOG_ERROR, "chroma_format_idc %d is illegal\n", sps->chroma_format_idc);
@@ -517,10 +518,13 @@ int ff_h264_decode_seq_parameter_set(H264Context *h){
                h->sps.bitstream_restriction_flag ? sps->num_reorder_frames : -1
                );
     }
+    sps->new = 1;
 
     av_free(h->sps_buffers[sps_id]);
-    h->sps_buffers[sps_id]= sps;
-    h->sps = *sps;
+    h->sps_buffers[sps_id] = sps;
+    h->sps                 = *sps;
+    h->current_sps_id      = sps_id;
+
     return 0;
 fail:
     av_free(sps);

@@ -3518,7 +3518,7 @@ static AVStream *add_av_stream1(FFStream *stream, AVCodecContext *codec, int cop
         fst->codec = avcodec_alloc_context3(NULL);
         memcpy(fst->codec, codec, sizeof(AVCodecContext));
         if (codec->extradata_size) {
-            fst->codec->extradata = av_malloc(codec->extradata_size);
+            fst->codec->extradata = av_mallocz(codec->extradata_size + FF_INPUT_BUFFER_PADDING_SIZE);
             memcpy(fst->codec->extradata, codec->extradata,
                 codec->extradata_size);
         }
@@ -3627,7 +3627,7 @@ static void extract_mpeg4_header(AVFormatContext *infile)
                     p[2] == 0x01 && p[3] == 0xb6) {
                     size = p - pkt.data;
                     //                    av_hex_dump_log(infile, AV_LOG_DEBUG, pkt.data, size);
-                    st->codec->extradata = av_malloc(size);
+                    st->codec->extradata = av_mallocz(size + FF_INPUT_BUFFER_PADDING_SIZE);
                     st->codec->extradata_size = size;
                     memcpy(st->codec->extradata, pkt.data, size);
                     break;
@@ -3931,7 +3931,8 @@ static void add_codec(FFStream *stream, AVCodecContext *av)
         return;
     st->codec = avcodec_alloc_context3(NULL);
     stream->streams[stream->nb_streams++] = st;
-    memcpy(st->codec, av, sizeof(AVCodecContext));
+    //memcpy(st->codec, av, sizeof(AVCodecContext));
+    avcodec_copy_context(st->codec, av);
 }
 
 static enum AVCodecID opt_audio_codec(const char *arg)

@@ -11,13 +11,7 @@
 
 @chapter Synopsis
 
-The generic syntax is:
-
-@example
-@c man begin SYNOPSIS
-ffmpeg [global options] [[infile options][@option{-i} @var{infile}]]... @{[outfile options] @var{outfile}@}...
-@c man end
-@end example
+ffmpeg [@var{global_options}] @{[@var{input_file_options}] -i @file{input_file}@} ... @{[@var{output_file_options}] @file{output_file}@} ...
 
 @chapter Description
 @c man begin DESCRIPTION
@@ -426,8 +420,7 @@ As an input option, ignore any timestamps stored in the file and instead
 generate timestamps assuming constant frame rate @var{fps}.
 
 As an output option, duplicate or drop input frames to achieve constant output
-frame rate @var{fps} (note that this actually causes the @code{fps} filter to be
-inserted to the end of the corresponding filtergraph).
+frame rate @var{fps}.
 
 @item -s[:@var{stream_specifier}] @var{size} (@emph{input/output,per-stream})
 Set frame size.
@@ -859,9 +852,17 @@ Audio sync method. "Stretches/squeezes" the audio stream to match the timestamps
 the parameter is the maximum samples per second by which the audio is changed.
 -async 1 is a special case where only the start of the audio stream is corrected
 without any later correction.
-This option has been deprecated. Use the @code{asyncts} audio filter instead.
+This option has been deprecated. Use the @code{aresample} audio filter instead.
+
 @item -copyts
-Copy timestamps from input to output.
+Do not process input timestamps, but keep their values without trying
+to sanitize them. In particular, do not remove the initial start time
+offset value.
+
+Note that, depending on the @option{vsync} option or on specific muxer
+processing, the output timestamps may mismatch with the input
+timestamps even when this option is selected.
+
 @item -copytb @var{mode}
 Specify how to set the encoder timebase when stream copying.  @var{mode} is an
 integer numeric value, and can assume one of the following values:
@@ -907,7 +908,7 @@ ffmpeg -i infile -streamid 0:33 -streamid 1:36 out.ts
 @end example
 
 @item -bsf[:@var{stream_specifier}] @var{bitstream_filters} (@emph{output,per-stream})
-Set bitstream filters for matching streams. @var{bistream_filters} is
+Set bitstream filters for matching streams. @var{bitstream_filters} is
 a comma-separated list of bitstream filters. Use the @code{-bsfs} option
 to get the list of bitstream filters.
 @example
@@ -931,7 +932,8 @@ ffmpeg -i input.mpg -timecode 01:02:03.04 -r 30000/1001 -s ntsc output.mpg
 Define a complex filter graph, i.e. one with arbitrary number of inputs and/or
 outputs. For simple graphs -- those with one input and one output of the same
 type -- see the @option{-filter} options. @var{filtergraph} is a description of
-the filter graph, as described in @ref{Filtergraph syntax}.
+the filter graph, as described in the ``Filtergraph syntax'' section of the
+ffmpeg-filters manual.
 
 Input link labels must refer to input streams using the
 @code{[file_index:stream_specifier]} syntax (i.e. the same as @option{-map}
@@ -1274,31 +1276,34 @@ ffmpeg -i src.ext -lmax 21*QP2LAMBDA dst.ext
 @end itemize
 @c man end EXAMPLES
 
-@include syntax.texi
-@include eval.texi
-@include decoders.texi
-@include encoders.texi
-@include demuxers.texi
-@include muxers.texi
-@include indevs.texi
-@include outdevs.texi
-@include protocols.texi
-@include bitstream_filters.texi
-@include filters.texi
-@include metadata.texi
+@chapter See Also
+
+@ifhtml
+@url{ffplay.html,ffplay}, @url{ffprobe.html,ffprobe}, @url{ffserver.html,ffserver},
+@url{ffmpeg-utils.html,ffmpeg-utils},
+@url{ffmpeg-scaler.html,ffmpeg-scaler},
+@url{ffmpeg-resampler.html,ffmpeg-resampler},
+@url{ffmpeg-codecs.html,ffmpeg-codecs},
+@url{ffmpeg-bitstream-filters,ffmpeg-bitstream-filters},
+@url{ffmpeg-formats.html,ffmpeg-formats},
+@url{ffmpeg-devices.html,ffmpeg-devices},
+@url{ffmpeg-protocols.html,ffmpeg-protocols},
+@url{ffmpeg-filters.html,ffmpeg-filters}
+@end ifhtml
+
+@ifnothtml
+ffplay(1), ffprobe(1), ffserver(1),
+ffmpeg-utils(1), ffmpeg-scaler(1), ffmpeg-resampler(1),
+ffmpeg-codecs(1), ffmpeg-bitstream-filters(1), ffmpeg-formats(1),
+ffmpeg-devices(1), ffmpeg-protocols(1), ffmpeg-filters(1)
+@end ifnothtml
+
+@include authors.texi
 
 @ignore
 
 @setfilename ffmpeg
 @settitle ffmpeg video converter
-
-@c man begin SEEALSO
-ffplay(1), ffprobe(1), ffserver(1) and the FFmpeg HTML documentation
-@c man end
-
-@c man begin AUTHORS
-See git history
-@c man end
 
 @end ignore
 
