@@ -46,6 +46,7 @@ typedef struct {
     int img_first;
     int img_last;
     int img_number;
+    int64_t pts;
     int img_count;
     int is_pipe;
     int split_planes;       /**< use independent file for each Y, U, V plane */
@@ -393,6 +394,8 @@ static int img_read_packet(AVFormatContext *s1, AVPacket *pkt)
         return AVERROR(ENOMEM);
     pkt->stream_index = 0;
     pkt->flags       |= AV_PKT_FLAG_KEY;
+    if (!s->is_pipe)
+        pkt->pts      = s->pts;
 
     pkt->size = 0;
     for (i = 0; i < 3; i++) {
@@ -411,6 +414,7 @@ static int img_read_packet(AVFormatContext *s1, AVPacket *pkt)
     } else {
         s->img_count++;
         s->img_number++;
+        s->pts++;
         return 0;
     }
 }
@@ -423,6 +427,17 @@ static int img_read_close(struct AVFormatContext* s1)
         globfree(&s->globstate);
     }
 #endif
+    return 0;
+}
+
+static int img_read_seek(AVFormatContext *s, int stream_index, int64_t timestamp, int flags)
+{
+    VideoDemuxData *s1 = s->priv_data;
+
+    if (timestamp < 0 || !s1->loop && timestamp > s1->img_last - s1->img_first)
+        return -1;
+    s1->img_number = timestamp%(s1->img_last - s1->img_first + 1) + s1->img_first;
+    s1->pts = timestamp;
     return 0;
 }
 
@@ -460,6 +475,7 @@ AVInputFormat ff_image2_demuxer = {
     .read_header    = img_read_header,
     .read_packet    = img_read_packet,
     .read_close     = img_read_close,
+    .read_seek      = img_read_seek,
     .flags          = AVFMT_NOFILE,
     .priv_class     = &img2_class,
 };

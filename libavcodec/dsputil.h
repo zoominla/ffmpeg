@@ -49,7 +49,6 @@ void ff_j_rev_dct (DCTELEM *data);
 void ff_j_rev_dct4 (DCTELEM *data);
 void ff_j_rev_dct2 (DCTELEM *data);
 void ff_j_rev_dct1 (DCTELEM *data);
-void ff_wmv2_idct_c(DCTELEM *data);
 
 void ff_fdct_mmx(DCTELEM *block);
 void ff_fdct_mmxext(DCTELEM *block);
@@ -309,7 +308,7 @@ typedef struct DSPContext {
      */
     op_pixels_func avg_no_rnd_pixels_tab[4][4];
 
-    void (*put_no_rnd_pixels_l2[2])(uint8_t *block/*align width (8 or 16)*/, const uint8_t *a/*align 1*/, const uint8_t *b/*align 1*/, int line_size, int h);
+    void (*put_no_rnd_pixels_l2)(uint8_t *block/*align 8*/, const uint8_t *a/*align 1*/, const uint8_t *b/*align 1*/, int line_size, int h);
 
     /**
      * Thirdpel motion compensation with rounding (a+b+1)>>1.
@@ -339,9 +338,6 @@ typedef struct DSPContext {
     qpel_mc_func put_h264_qpel_pixels_tab[4][16];
     qpel_mc_func avg_h264_qpel_pixels_tab[4][16];
 
-    qpel_mc_func put_2tap_qpel_pixels_tab[4][16];
-    qpel_mc_func avg_2tap_qpel_pixels_tab[4][16];
-
     me_cmp_func pix_abs[2][4];
 
     /* huffyuv specific */
@@ -364,14 +360,10 @@ typedef struct DSPContext {
 
     void (*h261_loop_filter)(uint8_t *src, int stride);
 
-    /* assume len is a multiple of 4, and arrays are 16-byte aligned */
-    void (*vorbis_inverse_coupling)(float *mag, float *ang, int blocksize);
     /* assume len is a multiple of 16, and arrays are 32-byte aligned */
     void (*vector_fmul_reverse)(float *dst, const float *src0, const float *src1, int len);
     /* assume len is a multiple of 8, and src arrays are 16-byte aligned */
     void (*vector_fmul_add)(float *dst, const float *src0, const float *src1, const float *src2, int len);
-    /* assume len is a multiple of 4, and arrays are 16-byte aligned */
-    void (*vector_fmul_window)(float *dst, const float *src0, const float *src1, const float *win, int len);
     /* assume len is a multiple of 8, and arrays are 16-byte aligned */
     void (*vector_clipf)(float *dst /* align 16 */, const float *src /* align 16 */, float min, float max, int len /* align 16 */);
     /**
@@ -388,23 +380,6 @@ typedef struct DSPContext {
      * @param len length of vectors, multiple of 4
      */
     void (*butterflies_float)(float *av_restrict v1, float *av_restrict v2, int len);
-
-    /**
-     * Calculate the sum and difference of two vectors of floats and interleave
-     * results into a separate output vector of floats, with each sum
-     * positioned before the corresponding difference.
-     *
-     * @param dst  output vector
-     *             constraints: 16-byte aligned
-     * @param src0 first input vector
-     *             constraints: 32-byte aligned
-     * @param src1 second input vector
-     *             constraints: 32-byte aligned
-     * @param len  number of elements in the input
-     *             constraints: multiple of 8
-     */
-    void (*butterflies_float_interleave)(float *dst, const float *src0,
-                                         const float *src1, int len);
 
     /* (I)DCT */
     void (*fdct)(DCTELEM *block/* align 16*/);
@@ -584,7 +559,6 @@ void ff_dsputil_init_mmx(DSPContext* c, AVCodecContext *avctx);
 void ff_dsputil_init_ppc(DSPContext* c, AVCodecContext *avctx);
 void ff_dsputil_init_sh4(DSPContext* c, AVCodecContext *avctx);
 void ff_dsputil_init_vis(DSPContext* c, AVCodecContext *avctx);
-void ff_dsputil_init_mips(DSPContext* c, AVCodecContext *avctx);
 
 void ff_dsputil_init_dwt(DSPContext *c);
 

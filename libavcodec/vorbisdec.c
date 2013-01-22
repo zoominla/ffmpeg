@@ -34,12 +34,12 @@
 #include "libavutil/avassert.h"
 #include "avcodec.h"
 #include "get_bits.h"
-#include "dsputil.h"
 #include "fft.h"
 #include "fmtconvert.h"
 #include "internal.h"
 
 #include "vorbis.h"
+#include "vorbisdsp.h"
 #include "xiph.h"
 
 #define V_NB_BITS 8
@@ -127,7 +127,7 @@ typedef struct vorbis_context_s {
     AVCodecContext *avccontext;
     AVFrame frame;
     GetBitContext gb;
-    DSPContext dsp;
+    VorbisDSPContext dsp;
     AVFloatDSPContext fdsp;
     FmtConvertContext fmt_conv;
 
@@ -601,6 +601,10 @@ static int vorbis_parse_setup_hdr_floors(vorbis_context *vc)
                        "Floor 0 amplitude bits is 0.\n");
                 return AVERROR_INVALIDDATA;
             }
+            if (floor_setup->data.t0.bark_map_size == 0) {
+                av_log(vc->avccontext, AV_LOG_ERROR, "Floor 0 bark map size is 0.\n");
+                return AVERROR_INVALIDDATA;
+            }
             floor_setup->data.t0.amplitude_offset = get_bits(gb, 8);
             floor_setup->data.t0.num_books        = get_bits(gb, 4) + 1;
 
@@ -987,7 +991,7 @@ static av_cold int vorbis_decode_init(AVCodecContext *avccontext)
     int hdr_type, ret;
 
     vc->avccontext = avccontext;
-    ff_dsputil_init(&vc->dsp, avccontext);
+    ff_vorbisdsp_init(&vc->dsp);
     avpriv_float_dsp_init(&vc->fdsp, avccontext->flags & CODEC_FLAG_BITEXACT);
     ff_fmt_convert_init(&vc->fmt_conv, avccontext);
 
@@ -1456,7 +1460,7 @@ static inline int vorbis_residue_decode(vorbis_context *vc, vorbis_residue *vr,
     }
 }
 
-void ff_vorbis_inverse_coupling(float *mag, float *ang, int blocksize)
+void ff_vorbis_inverse_coupling(float *mag, float *ang, intptr_t blocksize)
 {
     int i;
     for (i = 0;  i < blocksize;  i++) {
@@ -1626,13 +1630,13 @@ static int vorbis_parse_audio_packet(vorbis_context *vc, float **floor_ptr)
         const float *win  = vc->win[blockflag & previous_window];
 
         if (blockflag == previous_window) {
-            vc->dsp.vector_fmul_window(ret, saved, buf, win, blocksize / 4);
+            vc->fdsp.vector_fmul_window(ret, saved, buf, win, blocksize / 4);
         } else if (blockflag > previous_window) {
-            vc->dsp.vector_fmul_window(ret, saved, buf, win, bs0 / 4);
+            vc->fdsp.vector_fmul_window(ret, saved, buf, win, bs0 / 4);
             memcpy(ret+bs0/2, buf+bs0/4, ((bs1-bs0)/4) * sizeof(float));
         } else {
             memcpy(ret, saved, ((bs1 - bs0) / 4) * sizeof(float));
-            vc->dsp.vector_fmul_window(ret + (bs1 - bs0) / 4, saved + (bs1 - bs0) / 4, buf, win, bs0 / 4);
+            vc->fdsp.vector_fmul_window(ret + (bs1 - bs0) / 4, saved + (bs1 - bs0) / 4, buf, win, bs0 / 4);
         }
         memcpy(saved, buf + blocksize / 4, blocksize / 4 * sizeof(float));
     }

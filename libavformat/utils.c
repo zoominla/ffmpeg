@@ -442,6 +442,8 @@ int av_probe_input_buffer(AVIOContext *pb, AVInputFormat **fmt,
     } else if (max_probe_size > PROBE_BUF_MAX) {
         max_probe_size = PROBE_BUF_MAX;
     } else if (max_probe_size < PROBE_BUF_MIN) {
+        av_log(logctx, AV_LOG_ERROR,
+               "Specified probe size value %u cannot be < %u\n", max_probe_size, PROBE_BUF_MIN);
         return AVERROR(EINVAL);
     }
 
@@ -2584,10 +2586,25 @@ enum AVCodecID ff_get_pcm_codec_id(int bps, int flt, int be, int sflags)
 
 unsigned int av_codec_get_tag(const AVCodecTag * const *tags, enum AVCodecID id)
 {
+    unsigned int tag;
+    if (!av_codec_get_tag2(tags, id, &tag))
+        return 0;
+    return tag;
+}
+
+int av_codec_get_tag2(const AVCodecTag * const *tags, enum AVCodecID id,
+                      unsigned int *tag)
+{
     int i;
     for(i=0; tags && tags[i]; i++){
-        int tag= ff_codec_get_tag(tags[i], id);
-        if(tag) return tag;
+        const AVCodecTag *codec_tags = tags[i];
+        while (codec_tags->id != AV_CODEC_ID_NONE) {
+            if (codec_tags->id == id) {
+                *tag = codec_tags->tag;
+                return 1;
+            }
+            codec_tags++;
+        }
     }
     return 0;
 }
@@ -2776,7 +2793,7 @@ int avformat_find_stream_info(AVFormatContext *ic, AVDictionary **options)
         /* we did not get all the codec info, but we read too much data */
         if (read_size >= ic->probesize) {
             ret = count;
-            av_log(ic, AV_LOG_DEBUG, "Probe buffer size limit %d reached\n", ic->probesize);
+            av_log(ic, AV_LOG_DEBUG, "Probe buffer size limit of %d bytes reached\n", ic->probesize);
             for (i = 0; i < ic->nb_streams; i++)
                 if (!ic->streams[i]->r_frame_rate.num &&
                     ic->streams[i]->info->duration_count <= 1)
@@ -2849,7 +2866,7 @@ int avformat_find_stream_info(AVFormatContext *ic, AVDictionary **options)
                 t = FFMAX(t, av_rescale_q(st->codec_info_nb_frames, av_inv_q(st->avg_frame_rate), AV_TIME_BASE_Q));
 
             if (t >= ic->max_analyze_duration) {
-                av_log(ic, AV_LOG_WARNING, "max_analyze_duration %d reached at %"PRId64"\n", ic->max_analyze_duration, t);
+                av_log(ic, AV_LOG_WARNING, "max_analyze_duration %d reached at %"PRId64" microseconds\n", ic->max_analyze_duration, t);
                 break;
             }
             if (pkt->duration) {
@@ -2861,7 +2878,8 @@ int avformat_find_stream_info(AVFormatContext *ic, AVDictionary **options)
         {
             int64_t last = st->info->last_dts;
 
-            if(pkt->dts != AV_NOPTS_VALUE && last != AV_NOPTS_VALUE && pkt->dts > last){
+            if(   pkt->dts != AV_NOPTS_VALUE && last != AV_NOPTS_VALUE && pkt->dts > last
+               && pkt->dts - (uint64_t)last < INT64_MAX){
                 double dts= (is_relative(pkt->dts) ?  pkt->dts - RELATIVE_TS_BASE : pkt->dts) * av_q2d(st->time_base);
                 int64_t duration= pkt->dts - last;
 
@@ -2961,7 +2979,7 @@ int avformat_find_stream_info(AVFormatContext *ic, AVDictionary **options)
         if (st->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
             if(st->codec->codec_id == AV_CODEC_ID_RAWVIDEO && !st->codec->codec_tag && !st->codec->bits_per_coded_sample){
                 uint32_t tag= avcodec_pix_fmt_to_codec_tag(st->codec->pix_fmt);
-                if(ff_find_pix_fmt(ff_raw_pix_fmt_tags, tag) == st->codec->pix_fmt)
+                if (avpriv_find_pix_fmt(ff_raw_pix_fmt_tags, tag) == st->codec->pix_fmt)
                     st->codec->codec_tag= tag;
             }
 

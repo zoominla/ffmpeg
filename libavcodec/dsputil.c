@@ -36,7 +36,6 @@
 #include "mathops.h"
 #include "mpegvideo.h"
 #include "config.h"
-#include "vorbis.h"
 #include "diracdsp.h"
 
 uint8_t ff_cropTbl[256 + 2 * MAX_NEG_CROP] = {0, };
@@ -2497,23 +2496,6 @@ static void vector_fmul_add_c(float *dst, const float *src0, const float *src1, 
         dst[i] = src0[i] * src1[i] + src2[i];
 }
 
-static void vector_fmul_window_c(float *dst, const float *src0,
-                                 const float *src1, const float *win, int len)
-{
-    int i,j;
-    dst += len;
-    win += len;
-    src0+= len;
-    for(i=-len, j=len-1; i<0; i++, j--) {
-        float s0 = src0[i];
-        float s1 = src1[j];
-        float wi = win[i];
-        float wj = win[j];
-        dst[i] = s0*wj - s1*wi;
-        dst[j] = s0*wi + s1*wj;
-    }
-}
-
 static void butterflies_float_c(float *av_restrict v1, float *av_restrict v2,
                                 int len)
 {
@@ -2522,18 +2504,6 @@ static void butterflies_float_c(float *av_restrict v1, float *av_restrict v2,
         float t = v1[i] - v2[i];
         v1[i] += v2[i];
         v2[i] = t;
-    }
-}
-
-static void butterflies_float_interleave_c(float *dst, const float *src0,
-                                           const float *src1, int len)
-{
-    int i;
-    for (i = 0; i < len; i++) {
-        float f1 = src0[i];
-        float f2 = src1[i];
-        dst[2*i    ] = f1 + f2;
-        dst[2*i + 1] = f1 - f2;
     }
 }
 
@@ -2642,90 +2612,6 @@ static void vector_clip_int32_c(int32_t *dst, const int32_t *src, int32_t min,
     } while (len > 0);
 }
 
-#define W0 2048
-#define W1 2841 /* 2048*sqrt (2)*cos (1*pi/16) */
-#define W2 2676 /* 2048*sqrt (2)*cos (2*pi/16) */
-#define W3 2408 /* 2048*sqrt (2)*cos (3*pi/16) */
-#define W4 2048 /* 2048*sqrt (2)*cos (4*pi/16) */
-#define W5 1609 /* 2048*sqrt (2)*cos (5*pi/16) */
-#define W6 1108 /* 2048*sqrt (2)*cos (6*pi/16) */
-#define W7 565  /* 2048*sqrt (2)*cos (7*pi/16) */
-
-static void wmv2_idct_row(short * b)
-{
-    int s1,s2;
-    int a0,a1,a2,a3,a4,a5,a6,a7;
-    /*step 1*/
-    a1 = W1*b[1]+W7*b[7];
-    a7 = W7*b[1]-W1*b[7];
-    a5 = W5*b[5]+W3*b[3];
-    a3 = W3*b[5]-W5*b[3];
-    a2 = W2*b[2]+W6*b[6];
-    a6 = W6*b[2]-W2*b[6];
-    a0 = W0*b[0]+W0*b[4];
-    a4 = W0*b[0]-W0*b[4];
-    /*step 2*/
-    s1 = (181*(a1-a5+a7-a3)+128)>>8;//1,3,5,7,
-    s2 = (181*(a1-a5-a7+a3)+128)>>8;
-    /*step 3*/
-    b[0] = (a0+a2+a1+a5 + (1<<7))>>8;
-    b[1] = (a4+a6 +s1   + (1<<7))>>8;
-    b[2] = (a4-a6 +s2   + (1<<7))>>8;
-    b[3] = (a0-a2+a7+a3 + (1<<7))>>8;
-    b[4] = (a0-a2-a7-a3 + (1<<7))>>8;
-    b[5] = (a4-a6 -s2   + (1<<7))>>8;
-    b[6] = (a4+a6 -s1   + (1<<7))>>8;
-    b[7] = (a0+a2-a1-a5 + (1<<7))>>8;
-}
-static void wmv2_idct_col(short * b)
-{
-    int s1,s2;
-    int a0,a1,a2,a3,a4,a5,a6,a7;
-    /*step 1, with extended precision*/
-    a1 = (W1*b[8*1]+W7*b[8*7] + 4)>>3;
-    a7 = (W7*b[8*1]-W1*b[8*7] + 4)>>3;
-    a5 = (W5*b[8*5]+W3*b[8*3] + 4)>>3;
-    a3 = (W3*b[8*5]-W5*b[8*3] + 4)>>3;
-    a2 = (W2*b[8*2]+W6*b[8*6] + 4)>>3;
-    a6 = (W6*b[8*2]-W2*b[8*6] + 4)>>3;
-    a0 = (W0*b[8*0]+W0*b[8*4]    )>>3;
-    a4 = (W0*b[8*0]-W0*b[8*4]    )>>3;
-    /*step 2*/
-    s1 = (181*(a1-a5+a7-a3)+128)>>8;
-    s2 = (181*(a1-a5-a7+a3)+128)>>8;
-    /*step 3*/
-    b[8*0] = (a0+a2+a1+a5 + (1<<13))>>14;
-    b[8*1] = (a4+a6 +s1   + (1<<13))>>14;
-    b[8*2] = (a4-a6 +s2   + (1<<13))>>14;
-    b[8*3] = (a0-a2+a7+a3 + (1<<13))>>14;
-
-    b[8*4] = (a0-a2-a7-a3 + (1<<13))>>14;
-    b[8*5] = (a4-a6 -s2   + (1<<13))>>14;
-    b[8*6] = (a4+a6 -s1   + (1<<13))>>14;
-    b[8*7] = (a0+a2-a1-a5 + (1<<13))>>14;
-}
-void ff_wmv2_idct_c(short * block){
-    int i;
-
-    for(i=0;i<64;i+=8){
-        wmv2_idct_row(block+i);
-    }
-    for(i=0;i<8;i++){
-        wmv2_idct_col(block+i);
-    }
-}
-/* XXX: those functions should be suppressed ASAP when all IDCTs are
- converted */
-static void ff_wmv2_idct_put_c(uint8_t *dest, int line_size, DCTELEM *block)
-{
-    ff_wmv2_idct_c(block);
-    put_pixels_clamped_c(block, dest, line_size);
-}
-static void ff_wmv2_idct_add_c(uint8_t *dest, int line_size, DCTELEM *block)
-{
-    ff_wmv2_idct_c(block);
-    add_pixels_clamped_c(block, dest, line_size);
-}
 static void ff_jref_idct_put(uint8_t *dest, int line_size, DCTELEM *block)
 {
     ff_j_rev_dct (block);
@@ -2808,8 +2694,6 @@ int ff_check_alignment(void){
 
 av_cold void ff_dsputil_init(DSPContext* c, AVCodecContext *avctx)
 {
-    int i, j;
-
     ff_check_alignment();
 
 #if CONFIG_ENCODERS
@@ -2859,11 +2743,6 @@ av_cold void ff_dsputil_init(DSPContext* c, AVCodecContext *avctx)
             c->idct_add= ff_jref_idct_add;
             c->idct    = ff_j_rev_dct;
             c->idct_permutation_type= FF_LIBMPEG2_IDCT_PERM;
-        }else if(avctx->idct_algo==FF_IDCT_WMV2){
-            c->idct_put= ff_wmv2_idct_put_c;
-            c->idct_add= ff_wmv2_idct_add_c;
-            c->idct    = ff_wmv2_idct_c;
-            c->idct_permutation_type= FF_NO_IDCT_PERM;
         }else if(avctx->idct_algo==FF_IDCT_FAAN){
             c->idct_put= ff_faanidct_put;
             c->idct_add= ff_faanidct_add;
@@ -2990,7 +2869,7 @@ av_cold void ff_dsputil_init(DSPContext* c, AVCodecContext *avctx)
     c->vsse[5]= vsse_intra8_c;
     c->nsse[0]= nsse16_c;
     c->nsse[1]= nsse8_c;
-#if CONFIG_DWT
+#if CONFIG_SNOW_DECODER || CONFIG_SNOW_ENCODER
     ff_dsputil_init_dwt(c);
 #endif
 
@@ -3015,12 +2894,8 @@ av_cold void ff_dsputil_init(DSPContext* c, AVCodecContext *avctx)
     c->try_8x8basis= try_8x8basis_c;
     c->add_8x8basis= add_8x8basis_c;
 
-#if CONFIG_VORBIS_DECODER
-    c->vorbis_inverse_coupling = ff_vorbis_inverse_coupling;
-#endif
     c->vector_fmul_reverse = vector_fmul_reverse_c;
     c->vector_fmul_add = vector_fmul_add_c;
-    c->vector_fmul_window = vector_fmul_window_c;
     c->vector_clipf = vector_clipf_c;
     c->scalarproduct_int16 = scalarproduct_int16_c;
     c->scalarproduct_and_madd_int16 = scalarproduct_and_madd_int16_c;
@@ -3028,15 +2903,11 @@ av_cold void ff_dsputil_init(DSPContext* c, AVCodecContext *avctx)
     c->vector_clip_int32 = vector_clip_int32_c;
     c->scalarproduct_float = ff_scalarproduct_float_c;
     c->butterflies_float = butterflies_float_c;
-    c->butterflies_float_interleave = butterflies_float_interleave_c;
 
     c->shrink[0]= av_image_copy_plane;
     c->shrink[1]= ff_shrink22;
     c->shrink[2]= ff_shrink44;
     c->shrink[3]= ff_shrink88;
-
-    memset(c->put_2tap_qpel_pixels_tab, 0, sizeof(c->put_2tap_qpel_pixels_tab));
-    memset(c->avg_2tap_qpel_pixels_tab, 0, sizeof(c->avg_2tap_qpel_pixels_tab));
 
 #undef FUNC
 #undef FUNCC
@@ -3075,8 +2946,7 @@ av_cold void ff_dsputil_init(DSPContext* c, AVCodecContext *avctx)
     c->clear_blocks                  = FUNCC(clear_blocks ## dct   , depth);\
     c->add_pixels8                   = FUNCC(add_pixels8  ## dct   , depth);\
     c->add_pixels4                   = FUNCC(add_pixels4  ## dct   , depth);\
-    c->put_no_rnd_pixels_l2[0]       = FUNCC(put_no_rnd_pixels16_l2, depth);\
-    c->put_no_rnd_pixels_l2[1]       = FUNCC(put_no_rnd_pixels8_l2 , depth);\
+    c->put_no_rnd_pixels_l2          = FUNCC(put_no_rnd_pixels8_l2 , depth);\
 \
     c->put_h264_chroma_pixels_tab[0] = FUNCC(put_h264_chroma_mc8   , depth);\
     c->put_h264_chroma_pixels_tab[1] = FUNCC(put_h264_chroma_mc4   , depth);\
@@ -3150,18 +3020,6 @@ av_cold void ff_dsputil_init(DSPContext* c, AVCodecContext *avctx)
     if (ARCH_PPC)        ff_dsputil_init_ppc   (c, avctx);
     if (ARCH_SH4)        ff_dsputil_init_sh4   (c, avctx);
     if (ARCH_BFIN)       ff_dsputil_init_bfin  (c, avctx);
-    if (HAVE_MIPSFPU)    ff_dsputil_init_mips  (c, avctx);
-
-    for (i = 0; i < 4; i++) {
-        for (j = 0; j < 16; j++) {
-            if(!c->put_2tap_qpel_pixels_tab[i][j])
-                c->put_2tap_qpel_pixels_tab[i][j] =
-                    c->put_h264_qpel_pixels_tab[i][j];
-            if(!c->avg_2tap_qpel_pixels_tab[i][j])
-                c->avg_2tap_qpel_pixels_tab[i][j] =
-                    c->avg_h264_qpel_pixels_tab[i][j];
-        }
-    }
 
     ff_init_scantable_permutation(c->idct_permutation,
                                   c->idct_permutation_type);

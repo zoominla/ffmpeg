@@ -2,7 +2,7 @@ fate-vsynth1-%: SRC = tests/data/vsynth1.yuv
 fate-vsynth2-%: SRC = tests/data/vsynth2.yuv
 fate-vsynth%: CODEC = $(word 3, $(subst -, ,$(@)))
 fate-vsynth%: FMT = avi
-fate-vsynth%: CMD = enc_dec "rawvideo -s 352x288 -pix_fmt yuv420p $(RAWDECOPTS)" $(SRC) $(FMT) "-c $(CODEC) $(ENCOPTS)" rawvideo "-s 352x288 -pix_fmt yuv420p -vsync 0 $(DECOPTS)" -keep "$(DECINOPTS)"
+fate-vsynth%: CMD = enc_dec "rawvideo -s 352x288 -pix_fmt yuv420p $(RAWDECOPTS)" $(SRC) $(FMT) "-c $(CODEC) $(ENCOPTS)" rawvideo "-s 352x288 -pix_fmt yuv420p -vsync 0 $(DECOPTS)" -keep "$(DDCOPTS)"
 fate-vsynth%: CMP_UNIT = 1
 fate-vsynth%: REF = $(SRC_PATH)/tests/ref/vsynth/$(@:fate-%=%)
 
@@ -91,7 +91,7 @@ fate-vsynth%-jpegls:             DECOPTS = -sws_flags area
 
 FATE_VCODEC-$(call ENCDEC, JPEG2000, AVI) += j2k
 fate-vsynth%-j2k:                ENCOPTS = -qscale 7 -strict experimental -pix_fmt rgb24
-fate-vsynth%-j2k:                DECINOPTS = -vcodec j2k -strict experimental
+fate-vsynth%-j2k:                DDCOPTS = -vcodec j2k -strict experimental
 
 FATE_VCODEC-$(call ENCDEC, LJPEG MJPEG, AVI) += ljpeg
 fate-vsynth%-ljpeg:              ENCOPTS = -strict -1
@@ -163,33 +163,33 @@ FATE_VCODEC-$(call ENCDEC, MPEG4, AVI)     += $(FATE_MPEG4_AVI)
 fate-vsynth%-mpeg4:              ENCOPTS = -qscale 10 -flags +mv4 -mbd bits
 fate-vsynth%-mpeg4:              FMT     = mp4
 
-fate-vsynth%-mpeg4-rc:           ENCOPTS = -b 400k -bf 2
-
-fate-vsynth%-mpeg4-adv:          ENCOPTS = -qscale 9 -flags +mv4+aic       \
-                                           -data_partitioning 1 -trellis 1 \
-                                           -mbd bits -ps 200
-
-fate-vsynth%-mpeg4-qprd:         ENCOPTS = -b 450k -bf 2 -trellis 1          \
-                                           -flags +mv4+mv0 -mpv_flags +qp_rd \
-                                           -cmp 2 -subcmp 2 -mbd rd
-
 fate-vsynth%-mpeg4-adap:         ENCOPTS = -b 550k -bf 2 -flags +mv4+mv0 \
                                            -trellis 1 -cmp 1 -subcmp 2   \
                                            -mbd rd -scplx_mask 0.3
 
-fate-vsynth%-mpeg4-qpel:         ENCOPTS = -qscale 7 -flags +mv4+qpel -mbd 2 \
-                                           -bf 2 -cmp 1 -subcmp 2
-
-fate-vsynth%-mpeg4-thread:       ENCOPTS = -b 500k -flags +mv4+aic         \
+fate-vsynth%-mpeg4-adv:          ENCOPTS = -qscale 9 -flags +mv4+aic       \
                                            -data_partitioning 1 -trellis 1 \
-                                           -mbd bits -ps 200 -bf 2         \
-                                           -threads 2 -slices 2
+                                           -mbd bits -ps 200
 
 fate-vsynth%-mpeg4-error:        ENCOPTS = -qscale 7 -flags +mv4+aic    \
                                            -data_partitioning 1 -mbd rd \
                                            -ps 250 -error 10
 
 fate-vsynth%-mpeg4-nr:           ENCOPTS = -qscale 8 -flags +mv4 -mbd rd -nr 200
+
+fate-vsynth%-mpeg4-qpel:         ENCOPTS = -qscale 7 -flags +mv4+qpel -mbd 2 \
+                                           -bf 2 -cmp 1 -subcmp 2
+
+fate-vsynth%-mpeg4-qprd:         ENCOPTS = -b 450k -bf 2 -trellis 1          \
+                                           -flags +mv4+mv0 -mpv_flags +qp_rd \
+                                           -cmp 2 -subcmp 2 -mbd rd
+
+fate-vsynth%-mpeg4-rc:           ENCOPTS = -b 400k -bf 2
+
+fate-vsynth%-mpeg4-thread:       ENCOPTS = -b 500k -flags +mv4+aic         \
+                                           -data_partitioning 1 -trellis 1 \
+                                           -mbd bits -ps 200 -bf 2         \
+                                           -threads 2 -slices 2
 
 FATE_VCODEC-$(call ENCDEC, MSMPEG4V3, AVI) += msmpeg4
 fate-vsynth%-msmpeg4:            ENCOPTS = -qscale 10
@@ -268,7 +268,8 @@ FATE_VCODEC-$(call ENCDEC, WMV1, AVI)   += wmv1
 fate-vsynth%-wmv1:               ENCOPTS = -qscale 10
 
 FATE_VCODEC-$(call ENCDEC, WMV2, AVI)   += wmv2
-fate-vsynth%-wmv2:               ENCOPTS = -qscale 10
+fate-vsynth%-wmv2:               DDCOPTS = -idct auto
+fate-vsynth%-wmv2:               ENCOPTS = -qscale 10 -idct auto
 
 FATE_VCODEC-$(call ENCDEC, RAWVIDEO, AVI) += yuv
 fate-vsynth%-yuv:                CODEC = rawvideo
