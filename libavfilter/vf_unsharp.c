@@ -65,7 +65,143 @@ typedef struct {
     FilterParam luma;   ///< luma parameters (width, height, amount)
     FilterParam chroma; ///< chroma parameters (width, height, amount)
     int hsub, vsub;
+	float contrast_level;
+	float color_level;
 } UnsharpContext;
+
+static void filter_contrast( uint8_t *dst, int dst_stride,
+                          	  uint8_t *src, int src_stride,
+                          	  int width, int height, float contrast_level,
+                          	  uint8_t *dst_u, int dst_stride_u,
+                          	  uint8_t *src_u, int src_stride_u,
+                          	  int width_u, int height_u,
+                          	  uint8_t *dst_v, int dst_stride_v,
+                          	  uint8_t *src_v, int src_stride_v,
+                          	  int width_v, int height_v, 
+                          	  float color_level, int hsub, int vsub)
+{
+	int Histogram[256] = {0};
+	uint8_t* p1;
+	uint8_t* p2;
+	uint8_t* p3;
+	uint8_t* p4;
+	
+	int i,j;
+	
+	int heights_to_count;
+	if (height <= 10)
+		heights_to_count = height;
+	else
+		heights_to_count = (int)(height*0.6f);
+
+	for (j=0; j<heights_to_count; j++)
+	{
+		for(i=0; i<width; i++)
+		{
+			p1 = src + j*src_stride +i;
+			Histogram[*p1]++;
+		}
+	}
+
+
+    float aHistogram[256] = {0.0};
+	float s = contrast_level;
+	float sum = 0.0;
+	for (j=0; j<256; j++)
+	{
+		aHistogram[j] = pow((float)(Histogram[j]+1), s);
+		sum += aHistogram[j];
+	}
+    float pdf[256];
+	for (j=0; j<256; j++)
+	{
+		pdf[j] = aHistogram[j]/sum;
+	}
+    float cdf[256] = {0.0};
+	for (j=0; j<256; j++)
+	{
+		for (i=0; i<=j; i++)
+		{
+			cdf[j] += pdf[i];
+		}
+	}
+    int contrast[256];
+	for (j=0; j<256;j++)
+	{
+		contrast[j] = (int)(255*cdf[j]);
+	}
+
+
+	for (j=0; j<height; j++)
+	{
+		for(i=0; i<width; i++)
+		{
+			p1 = src + j*src_stride +i;
+			p2 = dst + j*dst_stride +i;
+			*p1 = *p2;
+		}
+	}
+	
+	for (j=0; j<height; j++)
+	{
+		for(i=0; i<width; i++)
+		{
+			p1 = src + j*src_stride +i;
+			p2 = dst + j*dst_stride +i;
+			*p2 = contrast[*p1];
+		}
+	}
+
+	//adjust color u
+    int pix;
+	for (j=0; j<height_u; j++)
+	{
+		for (i=0; i<width_u; i++)
+		{
+			p1 = src_u + j*src_stride_u +i;
+			p2 = dst_u + j*dst_stride_u +i;
+			p3 = src + (j<<vsub)*src_stride + (i<<hsub);
+			p4 = dst + (j<<vsub)*dst_stride + (i<<hsub);
+
+			if (*p3 <= 16)
+                *p3 = 16;
+			
+			pix = (int)(color_level*(*p4)*(*p1-128)/(*p3)+128);
+
+			if (pix>240)
+				*p2 = 240;
+			else if  (pix<16)
+				*p2 = 16;
+			else
+				*p2 = pix;
+		}
+	}
+
+	for (j=0; j<height_v; j++)
+	{
+		for (i=0; i<width_v; i++)
+		{
+			p1 = src_v + j*src_stride_v +i;
+			p2 = dst_v + j*dst_stride_v +i;
+			p3 = src + (j<<vsub)*src_stride + (i<<hsub);
+			p4 = dst + (j<<vsub)*dst_stride + (i<<hsub);
+
+			if (*p3 <= 16)
+                *p3 = 16;
+			
+			pix = (int)(color_level*(*p4)*(*p1-128)/(*p3)+128);
+
+			if (pix>240)
+				*p2 = 240;
+			else if  (pix<16)
+				*p2 = 16;
+			else
+				*p2 = pix;
+		}
+	}
+	
+	
+}
 
 static void apply_unsharp(      uint8_t *dst, int dst_stride,
                           const uint8_t *src, int src_stride,
@@ -138,9 +274,11 @@ static av_cold int init(AVFilterContext *ctx, const char *args)
     int lmsize_x = 5, cmsize_x = 5;
     int lmsize_y = 5, cmsize_y = 5;
     double lamount = 1.0f, camount = 0.0f;
-
+	float contrast_level = 0.2;
+	float color_level = 1.0;
+	
     if (args)
-        sscanf(args, "%d:%d:%lf:%d:%d:%lf", &lmsize_x, &lmsize_y, &lamount,
+        sscanf(args, "%f:%f:%d:%d:%lf:%d:%d:%lf", &contrast_level, &color_level, &lmsize_x, &lmsize_y, &lamount,
                                             &cmsize_x, &cmsize_y, &camount);
 
     if ((lamount && (lmsize_x < 2 || lmsize_y < 2)) ||
@@ -151,6 +289,9 @@ static av_cold int init(AVFilterContext *ctx, const char *args)
         return AVERROR(EINVAL);
     }
 
+	unsharp->color_level = color_level;
+	unsharp->contrast_level = contrast_level;
+	
     set_filter_param(&unsharp->luma,   lmsize_x, lmsize_y, lamount);
     set_filter_param(&unsharp->chroma, cmsize_x, cmsize_y, camount);
 
@@ -233,6 +374,14 @@ static int filter_frame(AVFilterLink *link, AVFilterBufferRef *in)
     apply_unsharp(out->data[1], out->linesize[1], in->data[1], in->linesize[1], cw,      ch,      &unsharp->chroma);
     apply_unsharp(out->data[2], out->linesize[2], in->data[2], in->linesize[2], cw,      ch,      &unsharp->chroma);
 
+	
+	filter_contrast(out->data[0], out->linesize[0], in->data[0], in->linesize[0], link->w, link->h, unsharp->contrast_level,
+	                out->data[1], out->linesize[1], in->data[1], in->linesize[1], cw,      ch, 
+	                out->data[2], out->linesize[2], in->data[2], in->linesize[2], cw,      ch,
+	                unsharp->color_level, unsharp->hsub, unsharp->vsub);
+	
+
+	
     avfilter_unref_bufferp(&in);
     return ff_filter_frame(outlink, out);
 }

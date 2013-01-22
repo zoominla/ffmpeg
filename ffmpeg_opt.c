@@ -1143,8 +1143,6 @@ static OutputStream *new_video_stream(OptionsContext *o, AVFormatContext *oc, in
             if (p) p++;
         }
         video_enc->rc_override_count = i;
-        if (!video_enc->rc_initial_buffer_occupancy)
-            video_enc->rc_initial_buffer_occupancy = video_enc->rc_buffer_size * 3 / 4;
         video_enc->intra_dc_precision = intra_dc_precision - 8;
 
         if (do_psnr)
@@ -1365,7 +1363,14 @@ static int read_ffserver_streams(OptionsContext *o, AVFormatContext *s, const ch
         AVCodecContext *avctx;
 
         codec = avcodec_find_encoder(ic->streams[i]->codec->codec_id);
-        ost   = new_output_stream(o, s, codec->type, -1);
+        //ost   = new_output_stream(o, s, codec->type, -1);
+        
+		if(codec->type == AVMEDIA_TYPE_VIDEO)
+			ost = new_video_stream(o, s, -1);
+		else if(codec->type == AVMEDIA_TYPE_AUDIO)
+			ost = new_audio_stream(o, s, -1);
+		else
+			ost   = new_output_stream(o, s, codec->type, -1);
         st    = ost->st;
         avctx = st->codec;
         ost->enc = codec;
@@ -1376,7 +1381,7 @@ static int read_ffserver_streams(OptionsContext *o, AVFormatContext *s, const ch
         st->info = av_malloc(sizeof(*st->info));
         memcpy(st->info, ic->streams[i]->info, sizeof(*st->info));
         st->codec= avctx;
-        avcodec_copy_context(st->codec, ic->streams[i]->codec);
+        //avcodec_copy_context(st->codec, ic->streams[i]->codec);
 
         if (st->codec->codec_type == AVMEDIA_TYPE_AUDIO && !ost->stream_copy)
             choose_sample_fmt(st, codec);
@@ -1496,8 +1501,8 @@ static int open_output_file(OptionsContext *o, const char *filename)
                 if(ist->st->codec->codec_type == ost->st->codec->codec_type){
                     ost->sync_ist= ist;
                     ost->source_index= i;
-                    if(ost->st->codec->codec_type == AVMEDIA_TYPE_AUDIO) ost->avfilter = av_strdup("anull");
-                    if(ost->st->codec->codec_type == AVMEDIA_TYPE_VIDEO) ost->avfilter = av_strdup("null");
+                    //if(ost->st->codec->codec_type == AVMEDIA_TYPE_AUDIO) ost->avfilter = av_strdup("anull");
+                    //if(ost->st->codec->codec_type == AVMEDIA_TYPE_VIDEO) ost->avfilter = av_strdup("null");
                     ist->discard = 0;
                     ist->st->discard = AVDISCARD_NONE;
                     break;
