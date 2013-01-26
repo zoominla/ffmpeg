@@ -986,10 +986,9 @@ static av_cold void common_init(H264Context *h)
     s->avctx->bits_per_raw_sample = 8;
     h->cur_chroma_format_idc = 1;
 
-    ff_h264dsp_init(&h->h264dsp,
-                    s->avctx->bits_per_raw_sample, h->cur_chroma_format_idc);
-    ff_h264_pred_init(&h->hpc, s->codec_id,
-                      s->avctx->bits_per_raw_sample, h->cur_chroma_format_idc);
+    ff_h264dsp_init(&h->h264dsp, 8, 1);
+    ff_h264qpel_init(&h->h264qpel, 8);
+    ff_h264_pred_init(&h->hpc, s->codec_id, 8, 1);
 
     h->dequant_coeff_pps = -1;
     s->unrestricted_mv   = 1;
@@ -1769,7 +1768,7 @@ static av_always_inline void xchg_mb_border(H264Context *h, uint8_t *src_y,
     }
 }
 
-static av_always_inline int dctcoef_get(DCTELEM *mb, int high_bit_depth,
+static av_always_inline int dctcoef_get(int16_t *mb, int high_bit_depth,
                                         int index)
 {
     if (high_bit_depth) {
@@ -1778,7 +1777,7 @@ static av_always_inline int dctcoef_get(DCTELEM *mb, int high_bit_depth,
         return AV_RN16A(mb + index);
 }
 
-static av_always_inline void dctcoef_set(DCTELEM *mb, int high_bit_depth,
+static av_always_inline void dctcoef_set(int16_t *mb, int high_bit_depth,
                                          int index, int value)
 {
     if (high_bit_depth) {
@@ -1797,8 +1796,8 @@ static av_always_inline void hl_decode_mb_predict_luma(H264Context *h,
                                                        uint8_t *dest_y, int p)
 {
     MpegEncContext *const s = &h->s;
-    void (*idct_add)(uint8_t *dst, DCTELEM *block, int stride);
-    void (*idct_dc_add)(uint8_t *dst, DCTELEM *block, int stride);
+    void (*idct_add)(uint8_t *dst, int16_t *block, int stride);
+    void (*idct_dc_add)(uint8_t *dst, int16_t *block, int stride);
     int i;
     int qscale = p == 0 ? s->qscale : h->chroma_qp[p - 1];
     block_offset += 16 * p;
@@ -1914,7 +1913,7 @@ static av_always_inline void hl_decode_mb_idct_luma(H264Context *h, int mb_type,
                                                     uint8_t *dest_y, int p)
 {
     MpegEncContext *const s = &h->s;
-    void (*idct_add)(uint8_t *dst, DCTELEM *block, int stride);
+    void (*idct_add)(uint8_t *dst, int16_t *block, int stride);
     int i;
     block_offset += 16 * p;
     if (!IS_INTRA4x4(mb_type)) {
@@ -2469,6 +2468,7 @@ static int h264_set_parameter_from_sps(H264Context *h)
 
             ff_h264dsp_init(&h->h264dsp, h->sps.bit_depth_luma,
                             h->sps.chroma_format_idc);
+            ff_h264qpel_init(&h->h264qpel, h->sps.bit_depth_luma);
             ff_h264_pred_init(&h->hpc, s->codec_id, h->sps.bit_depth_luma,
                               h->sps.chroma_format_idc);
             s->dsp.dct_bits = h->sps.bit_depth_luma > 8 ? 32 : 16;
@@ -2625,6 +2625,7 @@ static int h264_slice_header_init(H264Context *h, int reinit)
             memcpy(c, h->s.thread_context[i], sizeof(MpegEncContext));
             memset(&c->s + 1, 0, sizeof(H264Context) - sizeof(MpegEncContext));
             c->h264dsp     = h->h264dsp;
+            c->h264qpel    = h->h264qpel;
             c->sps         = h->sps;
             c->pps         = h->pps;
             c->pixel_shift = h->pixel_shift;
@@ -2666,8 +2667,8 @@ static int decode_slice_header(H264Context *h, H264Context *h0)
     int must_reinit;
     int needs_reinit = 0;
 
-    s->me.qpel_put = s->dsp.put_h264_qpel_pixels_tab;
-    s->me.qpel_avg = s->dsp.avg_h264_qpel_pixels_tab;
+    s->me.qpel_put = h->h264qpel.put_h264_qpel_pixels_tab;
+    s->me.qpel_avg = h->h264qpel.avg_h264_qpel_pixels_tab;
 
     first_mb_in_slice = get_ue_golomb_long(&s->gb);
 

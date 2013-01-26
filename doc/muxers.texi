@@ -241,8 +241,13 @@ ffmpeg -i in.avi -f image2 -frames:v 1 img.jpeg
 @end example
 
 @table @option
-@item -start_number @var{number}
-Start the sequence from @var{number}.
+@item start_number @var{number}
+Start the sequence from @var{number}. Default value is 1. Must be a
+positive number.
+
+@item updatefirst 1|0
+If set to 1, update the first written image file again and
+again. Default value is 0.
 @end table
 
 The image muxer supports the .Y.U.V image file format. This format is
@@ -538,10 +543,6 @@ Allow caching (only affects M3U8 list files).
 
 @item live
 Allow live-friendly file generation.
-
-This currently only affects M3U8 lists. In particular, write a fake
-EXT-X-TARGETDURATION duration field at the top of the file, based on
-the specified @var{segment_time}.
 @end table
 
 Default value is @code{cache}.
@@ -579,8 +580,8 @@ auto-select this format.
 @code{ext} is deprecated in favor or @code{csv}.
 
 @item m3u8
-Generate an extended M3U8 file, version 4, compliant with
-@url{http://tools.ietf.org/id/draft-pantos-http-live-streaming-08.txt}.
+Generate an extended M3U8 file, version 3, compliant with
+@url{http://tools.ietf.org/id/draft-pantos-http-live-streaming}.
 
 A list file with the suffix @code{".m3u8"} will auto-select this format.
 @end table

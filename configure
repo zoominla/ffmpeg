@@ -1300,6 +1300,7 @@ HAVE_LIST_PUB='
 MATH_FUNCS="
     atanf
     atan2f
+    cbrt
     cbrtf
     cosf
     exp2
@@ -1823,7 +1824,7 @@ wmv3_vdpau_decoder_select="vc1_vdpau_decoder"
 wmv3_vdpau_hwaccel_select="vc1_vdpau_hwaccel"
 
 # parsers
-h264_parser_select="error_resilience golomb h264dsp h264pred mpegvideo"
+h264_parser_select="error_resilience golomb h264dsp h264pred h264qpel mpegvideo"
 mpeg4video_parser_select="error_resilience mpegvideo"
 mpegvideo_parser_select="error_resilience mpegvideo"
 vc1_parser_select="error_resilience mpegvideo"
@@ -3153,12 +3154,6 @@ case $target_os in
         enabled gcc || check_ldflags -Wl,-zmuldefs
         ;;
     openbsd|bitrig)
-        # On OpenBSD 4.5. the compiler does not use PIC unless
-        # explicitly using -fPIC. FFmpeg builds fine without PIC,
-        # however the generated executable will not do anything
-        # (simply quits with exit-code 1, no crash, no output).
-        # Thus explicitly enable PIC here.
-        enable pic
         disable symver
         SHFLAGS='-shared'
         SLIBNAME_WITH_MAJOR='$(SLIBNAME).$(LIBVERSION)'
