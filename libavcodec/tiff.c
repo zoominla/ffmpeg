@@ -254,7 +254,7 @@ static int add_doubles_metadata(int count,
     int i;
     double *dp;
 
-    if (count >= INT_MAX / sizeof(int64_t))
+    if (count >= INT_MAX / sizeof(int64_t) || count <= 0)
         return AVERROR_INVALIDDATA;
     if (bytestream2_get_bytes_left(&s->gb) < count * sizeof(int64_t))
         return AVERROR_INVALIDDATA;
@@ -280,7 +280,7 @@ static int add_shorts_metadata(int count, const char *name,
     int i;
     int16_t *sp;
 
-    if (count >= INT_MAX / sizeof(int16_t))
+    if (count >= INT_MAX / sizeof(int16_t) || count <= 0)
         return AVERROR_INVALIDDATA;
     if (bytestream2_get_bytes_left(&s->gb) < count * sizeof(int16_t))
         return AVERROR_INVALIDDATA;
@@ -741,7 +741,7 @@ static int tiff_decode_tag(TiffContext *s)
         break;
     case TIFF_ROWSPERSTRIP:
         if (type == TIFF_LONG && value == UINT_MAX)
-            value = s->avctx->height;
+            value = s->height;
         if (value < 1) {
             av_log(s->avctx, AV_LOG_ERROR,
                    "Incorrect value of rows per strip\n");
@@ -847,7 +847,7 @@ static int tiff_decode_tag(TiffContext *s)
             s->fax_opts = value;
         break;
 #define ADD_METADATA(count, name, sep)\
-    if (ret = add_metadata(count, type, name, sep, s) < 0) {\
+    if ((ret = add_metadata(count, type, name, sep, s)) < 0) {\
         av_log(s->avctx, AV_LOG_ERROR, "Error allocating temporary buffer\n");\
         return ret;\
     }

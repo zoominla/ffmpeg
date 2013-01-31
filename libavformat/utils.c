@@ -409,7 +409,7 @@ int av_probe_input_buffer(AVIOContext *pb, AVInputFormat **fmt,
 {
     AVProbeData pd = { filename ? filename : "", NULL, -offset };
     unsigned char *buf = NULL;
-    int ret = 0, probe_size;
+    int ret = 0, probe_size, buf_offset = 0;
 
     if (!max_probe_size) {
         max_probe_size = PROBE_BUF_MAX;
@@ -449,7 +449,7 @@ int av_probe_input_buffer(AVIOContext *pb, AVInputFormat **fmt,
             score = 0;
             ret = 0;            /* error was end of file, nothing read */
         }
-        pd.buf_size += ret;
+        pd.buf_size = buf_offset += ret;
         pd.buf = &buf[offset];
 
         memset(pd.buf + pd.buf_size, 0, AVPROBE_PADDING_SIZE);
@@ -626,6 +626,21 @@ fail:
 
 /*******************************************************/
 
+static void force_codec_ids(AVFormatContext *s, AVStream *st)
+{
+    switch(st->codec->codec_type){
+    case AVMEDIA_TYPE_VIDEO:
+        if(s->video_codec_id)   st->codec->codec_id= s->video_codec_id;
+        break;
+    case AVMEDIA_TYPE_AUDIO:
+        if(s->audio_codec_id)   st->codec->codec_id= s->audio_codec_id;
+        break;
+    case AVMEDIA_TYPE_SUBTITLE:
+        if(s->subtitle_codec_id)st->codec->codec_id= s->subtitle_codec_id;
+        break;
+    }
+}
+
 static void probe_codec(AVFormatContext *s, AVStream *st, const AVPacket *pkt)
 {
     if(st->request_probe>0){
@@ -666,22 +681,8 @@ no_packet:
                 }else
                     av_log(s, AV_LOG_WARNING, "probed stream %d failed\n", st->index);
             }
+            force_codec_ids(s, st);
         }
-    }
-}
-
-static void force_codec_ids(AVFormatContext *s, AVStream *st)
-{
-    switch(st->codec->codec_type){
-    case AVMEDIA_TYPE_VIDEO:
-        if(s->video_codec_id)   st->codec->codec_id= s->video_codec_id;
-        break;
-    case AVMEDIA_TYPE_AUDIO:
-        if(s->audio_codec_id)   st->codec->codec_id= s->audio_codec_id;
-        break;
-    case AVMEDIA_TYPE_SUBTITLE:
-        if(s->subtitle_codec_id)st->codec->codec_id= s->subtitle_codec_id;
-        break;
     }
 }
 
@@ -794,6 +795,13 @@ int ff_get_audio_frame_size(AVCodecContext *enc, int size, int mux)
     /* fallback to using frame_size if muxing */
     if (enc->frame_size > 1)
         return enc->frame_size;
+
+    //For WMA we currently have no other means to calculate duration thus we
+    //do it here by assuming CBR, which is true for all known cases.
+    if(!mux && enc->bit_rate>0 && size>0 && enc->sample_rate>0 && enc->block_align>1) {
+        if (enc->codec_id == AV_CODEC_ID_WMAV1 || enc->codec_id == AV_CODEC_ID_WMAV2)
+            return  ((int64_t)size * 8 * enc->sample_rate) / enc->bit_rate;
+    }
 
     return -1;
 }
