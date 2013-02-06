@@ -724,10 +724,10 @@ typedef struct MpegEncContext {
     int context_reinit;
 } MpegEncContext;
 
-#define REBASE_PICTURE(pic, new_ctx, old_ctx) (pic ? \
-    (pic >= old_ctx->picture && pic < old_ctx->picture+old_ctx->picture_count ?\
-        &new_ctx->picture[pic - old_ctx->picture] : pic - (Picture*)old_ctx + (Picture*)new_ctx)\
-    : NULL)
+#define REBASE_PICTURE(pic, new_ctx, old_ctx)             \
+    ((pic && pic >= old_ctx->picture &&                   \
+      pic < old_ctx->picture + old_ctx->picture_count) ?  \
+        &new_ctx->picture[pic - old_ctx->picture] : NULL)
 
 /* mpegvideo_enc common options */
 #define FF_MPV_FLAG_SKIP_RD      0x0001
