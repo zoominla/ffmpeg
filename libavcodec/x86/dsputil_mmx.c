@@ -22,6 +22,7 @@
  * MMX optimization by Nick Kurshev <nickols_k@mail.ru>
  */
 
+#include "libavutil/attributes.h"
 #include "libavutil/cpu.h"
 #include "libavutil/x86/asm.h"
 #include "libavcodec/dsputil.h"
@@ -84,9 +85,9 @@ DECLARE_ALIGNED(16, const double, ff_pd_2)[2] = { 2.0, 2.0 };
 
 #if HAVE_YASM
 void ff_put_pixels8_x2_mmxext(uint8_t *block, const uint8_t *pixels,
-                              int line_size, int h);
+                              ptrdiff_t line_size, int h);
 void ff_put_pixels8_x2_3dnow(uint8_t *block, const uint8_t *pixels,
-                             int line_size, int h);
+                             ptrdiff_t line_size, int h);
 void ff_put_pixels8_l2_mmxext(uint8_t *dst, uint8_t *src1, uint8_t *src2,
                               int dstStride, int src1Stride, int h);
 void ff_put_no_rnd_pixels8_l2_mmxext(uint8_t *dst, uint8_t *src1,
@@ -95,9 +96,9 @@ void ff_put_no_rnd_pixels8_l2_mmxext(uint8_t *dst, uint8_t *src1,
 void ff_avg_pixels8_l2_mmxext(uint8_t *dst, uint8_t *src1, uint8_t *src2,
                               int dstStride, int src1Stride, int h);
 void ff_put_pixels16_x2_mmxext(uint8_t *block, const uint8_t *pixels,
-                               int line_size, int h);
+                               ptrdiff_t line_size, int h);
 void ff_put_pixels16_x2_3dnow(uint8_t *block, const uint8_t *pixels,
-                              int line_size, int h);
+                              ptrdiff_t line_size, int h);
 void ff_put_pixels16_l2_mmxext(uint8_t *dst, uint8_t *src1, uint8_t *src2,
                                int dstStride, int src1Stride, int h);
 void ff_avg_pixels16_l2_mmxext(uint8_t *dst, uint8_t *src1, uint8_t *src2,
@@ -105,47 +106,47 @@ void ff_avg_pixels16_l2_mmxext(uint8_t *dst, uint8_t *src1, uint8_t *src2,
 void ff_put_no_rnd_pixels16_l2_mmxext(uint8_t *dst, uint8_t *src1, uint8_t *src2,
                                       int dstStride, int src1Stride, int h);
 void ff_put_no_rnd_pixels8_x2_mmxext(uint8_t *block, const uint8_t *pixels,
-                                     int line_size, int h);
+                                     ptrdiff_t line_size, int h);
 void ff_put_no_rnd_pixels8_x2_3dnow(uint8_t *block, const uint8_t *pixels,
-                                    int line_size, int h);
+                                    ptrdiff_t line_size, int h);
 void ff_put_no_rnd_pixels8_x2_exact_mmxext(uint8_t *block,
                                            const uint8_t *pixels,
-                                           int line_size, int h);
+                                           ptrdiff_t line_size, int h);
 void ff_put_no_rnd_pixels8_x2_exact_3dnow(uint8_t *block,
                                           const uint8_t *pixels,
-                                          int line_size, int h);
+                                          ptrdiff_t line_size, int h);
 void ff_put_pixels8_y2_mmxext(uint8_t *block, const uint8_t *pixels,
-                              int line_size, int h);
+                              ptrdiff_t line_size, int h);
 void ff_put_pixels8_y2_3dnow(uint8_t *block, const uint8_t *pixels,
-                             int line_size, int h);
+                             ptrdiff_t line_size, int h);
 void ff_put_no_rnd_pixels8_y2_mmxext(uint8_t *block, const uint8_t *pixels,
-                                     int line_size, int h);
+                                     ptrdiff_t line_size, int h);
 void ff_put_no_rnd_pixels8_y2_3dnow(uint8_t *block, const uint8_t *pixels,
-                                    int line_size, int h);
+                                    ptrdiff_t line_size, int h);
 void ff_put_no_rnd_pixels8_y2_exact_mmxext(uint8_t *block,
                                            const uint8_t *pixels,
-                                           int line_size, int h);
+                                           ptrdiff_t line_size, int h);
 void ff_put_no_rnd_pixels8_y2_exact_3dnow(uint8_t *block,
                                           const uint8_t *pixels,
-                                          int line_size, int h);
+                                          ptrdiff_t line_size, int h);
 void ff_avg_pixels8_mmxext(uint8_t *block, const uint8_t *pixels,
-                           int line_size, int h);
+                           ptrdiff_t line_size, int h);
 void ff_avg_pixels8_3dnow(uint8_t *block, const uint8_t *pixels,
-                          int line_size, int h);
+                          ptrdiff_t line_size, int h);
 void ff_avg_pixels8_x2_mmxext(uint8_t *block, const uint8_t *pixels,
-                              int line_size, int h);
+                              ptrdiff_t line_size, int h);
 void ff_avg_pixels8_x2_3dnow(uint8_t *block, const uint8_t *pixels,
-                             int line_size, int h);
+                             ptrdiff_t line_size, int h);
 void ff_avg_pixels8_y2_mmxext(uint8_t *block, const uint8_t *pixels,
-                              int line_size, int h);
+                              ptrdiff_t line_size, int h);
 void ff_avg_pixels8_y2_3dnow(uint8_t *block, const uint8_t *pixels,
-                             int line_size, int h);
+                             ptrdiff_t line_size, int h);
 void ff_avg_pixels8_xy2_mmxext(uint8_t *block, const uint8_t *pixels,
-                               int line_size, int h);
+                               ptrdiff_t line_size, int h);
 void ff_avg_pixels8_xy2_3dnow(uint8_t *block, const uint8_t *pixels,
-                              int line_size, int h);
+                              ptrdiff_t line_size, int h);
 
-void ff_put_pixels8_mmxext(uint8_t *block, const uint8_t *pixels, int line_size, int h);
+void ff_put_pixels8_mmxext(uint8_t *block, const uint8_t *pixels, ptrdiff_t line_size, int h);
 static void ff_put_pixels16_mmxext(uint8_t *block, const uint8_t *pixels,
                                    int line_size, int h)
 {
@@ -468,7 +469,7 @@ void ff_add_pixels_clamped_mmx(const int16_t *block, uint8_t *pixels,
 }
 
 static void put_pixels8_mmx(uint8_t *block, const uint8_t *pixels,
-                            int line_size, int h)
+                            ptrdiff_t line_size, int h)
 {
     __asm__ volatile (
         "lea   (%3, %3), %%"REG_a"      \n\t"
@@ -495,7 +496,7 @@ static void put_pixels8_mmx(uint8_t *block, const uint8_t *pixels,
 }
 
 static void put_pixels16_mmx(uint8_t *block, const uint8_t *pixels,
-                             int line_size, int h)
+                             ptrdiff_t line_size, int h)
 {
     __asm__ volatile (
         "lea   (%3, %3), %%"REG_a"      \n\t"
@@ -1522,9 +1523,9 @@ static void gmc_mmx(uint8_t *dst, uint8_t *src,
 #endif /* HAVE_INLINE_ASM */
 
 void ff_put_pixels16_sse2(uint8_t *block, const uint8_t *pixels,
-                          int line_size, int h);
+                          ptrdiff_t line_size, int h);
 void ff_avg_pixels16_sse2(uint8_t *block, const uint8_t *pixels,
-                          int line_size, int h);
+                          ptrdiff_t line_size, int h);
 
 void ff_put_h264_chroma_mc8_rnd_mmx  (uint8_t *dst, uint8_t *src,
                                       int stride, int h, int x, int y);
@@ -1821,7 +1822,8 @@ void ff_vector_clip_int32_sse4    (int32_t *dst, const int32_t *src,
         c->PFX ## _pixels_tab IDX [3] = PFX ## _pixels ## SIZE ## _xy2_ ## CPU; \
     } while (0)
 
-static void dsputil_init_mmx(DSPContext *c, AVCodecContext *avctx, int mm_flags)
+static av_cold void dsputil_init_mmx(DSPContext *c, AVCodecContext *avctx,
+                                     int mm_flags)
 {
     const int high_bit_depth = avctx->bits_per_raw_sample > 8;
 
@@ -1867,8 +1869,8 @@ static void dsputil_init_mmx(DSPContext *c, AVCodecContext *avctx, int mm_flags)
 
 }
 
-static void dsputil_init_mmxext(DSPContext *c, AVCodecContext *avctx,
-                                int mm_flags)
+static av_cold void dsputil_init_mmxext(DSPContext *c, AVCodecContext *avctx,
+                                        int mm_flags)
 {
     const int bit_depth      = avctx->bits_per_raw_sample;
     const int high_bit_depth = bit_depth > 8;
@@ -1946,8 +1948,8 @@ static void dsputil_init_mmxext(DSPContext *c, AVCodecContext *avctx,
 #endif /* HAVE_MMXEXT_EXTERNAL */
 }
 
-static void dsputil_init_3dnow(DSPContext *c, AVCodecContext *avctx,
-                               int mm_flags)
+static av_cold void dsputil_init_3dnow(DSPContext *c, AVCodecContext *avctx,
+                                       int mm_flags)
 {
     const int high_bit_depth = avctx->bits_per_raw_sample > 8;
 
@@ -1991,7 +1993,8 @@ static void dsputil_init_3dnow(DSPContext *c, AVCodecContext *avctx,
 #endif /* HAVE_YASM */
 }
 
-static void dsputil_init_sse(DSPContext *c, AVCodecContext *avctx, int mm_flags)
+static av_cold void dsputil_init_sse(DSPContext *c, AVCodecContext *avctx,
+                                     int mm_flags)
 {
     const int high_bit_depth = avctx->bits_per_raw_sample > 8;
 
@@ -2014,8 +2017,8 @@ static void dsputil_init_sse(DSPContext *c, AVCodecContext *avctx, int mm_flags)
 #endif /* HAVE_YASM */
 }
 
-static void dsputil_init_sse2(DSPContext *c, AVCodecContext *avctx,
-                              int mm_flags)
+static av_cold void dsputil_init_sse2(DSPContext *c, AVCodecContext *avctx,
+                                      int mm_flags)
 {
     const int bit_depth      = avctx->bits_per_raw_sample;
     const int high_bit_depth = bit_depth > 8;
@@ -2062,8 +2065,8 @@ static void dsputil_init_sse2(DSPContext *c, AVCodecContext *avctx,
 #endif /* HAVE_SSE2_EXTERNAL */
 }
 
-static void dsputil_init_ssse3(DSPContext *c, AVCodecContext *avctx,
-                               int mm_flags)
+static av_cold void dsputil_init_ssse3(DSPContext *c, AVCodecContext *avctx,
+                                       int mm_flags)
 {
 #if HAVE_SSSE3_EXTERNAL
     const int high_bit_depth = avctx->bits_per_raw_sample > 8;
@@ -2088,15 +2091,15 @@ static void dsputil_init_ssse3(DSPContext *c, AVCodecContext *avctx,
 #endif /* HAVE_SSSE3_EXTERNAL */
 }
 
-static void dsputil_init_sse4(DSPContext *c, AVCodecContext *avctx,
-                              int mm_flags)
+static av_cold void dsputil_init_sse4(DSPContext *c, AVCodecContext *avctx,
+                                      int mm_flags)
 {
 #if HAVE_SSE4_EXTERNAL
     c->vector_clip_int32 = ff_vector_clip_int32_sse4;
 #endif /* HAVE_SSE4_EXTERNAL */
 }
 
-static void dsputil_init_avx(DSPContext *c, AVCodecContext *avctx, int mm_flags)
+static av_cold void dsputil_init_avx(DSPContext *c, AVCodecContext *avctx, int mm_flags)
 {
 #if HAVE_AVX_EXTERNAL
     const int bit_depth = avctx->bits_per_raw_sample;
@@ -2110,7 +2113,7 @@ static void dsputil_init_avx(DSPContext *c, AVCodecContext *avctx, int mm_flags)
 #endif /* HAVE_AVX_EXTERNAL */
 }
 
-void ff_dsputil_init_mmx(DSPContext *c, AVCodecContext *avctx)
+av_cold void ff_dsputil_init_mmx(DSPContext *c, AVCodecContext *avctx)
 {
     int mm_flags = av_get_cpu_flags();
 

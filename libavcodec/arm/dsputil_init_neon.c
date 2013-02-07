@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 
+#include "libavutil/attributes.h"
 #include "libavcodec/avcodec.h"
 #include "libavcodec/dsputil.h"
 #include "dsputil_arm.h"
@@ -32,32 +33,32 @@ void ff_simple_idct_add_neon(uint8_t *dest, int line_size, int16_t *data);
 void ff_clear_block_neon(int16_t *block);
 void ff_clear_blocks_neon(int16_t *blocks);
 
-void ff_put_pixels16_neon(uint8_t *, const uint8_t *, int, int);
-void ff_put_pixels16_x2_neon(uint8_t *, const uint8_t *, int, int);
-void ff_put_pixels16_y2_neon(uint8_t *, const uint8_t *, int, int);
-void ff_put_pixels16_xy2_neon(uint8_t *, const uint8_t *, int, int);
-void ff_put_pixels8_neon(uint8_t *, const uint8_t *, int, int);
-void ff_put_pixels8_x2_neon(uint8_t *, const uint8_t *, int, int);
-void ff_put_pixels8_y2_neon(uint8_t *, const uint8_t *, int, int);
-void ff_put_pixels8_xy2_neon(uint8_t *, const uint8_t *, int, int);
-void ff_put_pixels16_x2_no_rnd_neon(uint8_t *, const uint8_t *, int, int);
-void ff_put_pixels16_y2_no_rnd_neon(uint8_t *, const uint8_t *, int, int);
-void ff_put_pixels16_xy2_no_rnd_neon(uint8_t *, const uint8_t *, int, int);
-void ff_put_pixels8_x2_no_rnd_neon(uint8_t *, const uint8_t *, int, int);
-void ff_put_pixels8_y2_no_rnd_neon(uint8_t *, const uint8_t *, int, int);
-void ff_put_pixels8_xy2_no_rnd_neon(uint8_t *, const uint8_t *, int, int);
+void ff_put_pixels16_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_put_pixels16_x2_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_put_pixels16_y2_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_put_pixels16_xy2_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_put_pixels8_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_put_pixels8_x2_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_put_pixels8_y2_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_put_pixels8_xy2_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_put_pixels16_x2_no_rnd_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_put_pixels16_y2_no_rnd_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_put_pixels16_xy2_no_rnd_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_put_pixels8_x2_no_rnd_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_put_pixels8_y2_no_rnd_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_put_pixels8_xy2_no_rnd_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
 
-void ff_avg_pixels16_neon(uint8_t *, const uint8_t *, int, int);
-void ff_avg_pixels16_x2_neon(uint8_t *, const uint8_t *, int, int);
-void ff_avg_pixels16_y2_neon(uint8_t *, const uint8_t *, int, int);
-void ff_avg_pixels16_xy2_neon(uint8_t *, const uint8_t *, int, int);
-void ff_avg_pixels8_neon(uint8_t *, const uint8_t *, int, int);
-void ff_avg_pixels8_x2_neon(uint8_t *, const uint8_t *, int, int);
-void ff_avg_pixels8_y2_neon(uint8_t *, const uint8_t *, int, int);
-void ff_avg_pixels8_xy2_neon(uint8_t *, const uint8_t *, int, int);
-void ff_avg_pixels16_x2_no_rnd_neon(uint8_t *, const uint8_t *, int, int);
-void ff_avg_pixels16_y2_no_rnd_neon(uint8_t *, const uint8_t *, int, int);
-void ff_avg_pixels16_xy2_no_rnd_neon(uint8_t *, const uint8_t *, int, int);
+void ff_avg_pixels16_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_avg_pixels16_x2_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_avg_pixels16_y2_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_avg_pixels16_xy2_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_avg_pixels8_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_avg_pixels8_x2_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_avg_pixels8_y2_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_avg_pixels8_xy2_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_avg_pixels16_x2_no_rnd_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_avg_pixels16_y2_no_rnd_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
+void ff_avg_pixels16_xy2_no_rnd_neon(uint8_t *, const uint8_t *, ptrdiff_t, int);
 
 void ff_add_pixels_clamped_neon(const int16_t *, uint8_t *, int);
 void ff_put_pixels_clamped_neon(const int16_t *, uint8_t *, int);
@@ -83,7 +84,7 @@ int32_t ff_scalarproduct_and_madd_int16_neon(int16_t *v1, const int16_t *v2,
 void ff_apply_window_int16_neon(int16_t *dst, const int16_t *src,
                                 const int16_t *window, unsigned n);
 
-void ff_dsputil_init_neon(DSPContext *c, AVCodecContext *avctx)
+av_cold void ff_dsputil_init_neon(DSPContext *c, AVCodecContext *avctx)
 {
     const int high_bit_depth = avctx->bits_per_raw_sample > 8;
 
