@@ -1479,6 +1479,7 @@ static int open_output_file(OptionsContext *o, const char *filename)
         }
     }
 
+	// Comment out 'ffm' processing, it's not compatible with filter_complex.
     /*if (!strcmp(file_oformat->name, "ffm") &&
         av_strstart(filename, "http:", NULL)) {
         int j;
