@@ -2458,6 +2458,12 @@ static int h264_set_parameter_from_sps(H264Context *h)
     if (s->avctx->has_b_frames < 2)
         s->avctx->has_b_frames = !s->low_delay;
 
+    if (h->sps.bit_depth_luma != h->sps.bit_depth_chroma) {
+        av_log_missing_feature(s->avctx,
+            "Different bit depth between chroma and luma", 1);
+        return AVERROR_PATCHWELCOME;
+    }
+
     if (s->avctx->bits_per_raw_sample != h->sps.bit_depth_luma ||
         h->cur_chroma_format_idc      != h->sps.chroma_format_idc) {
         if (s->avctx->codec &&
@@ -3120,7 +3126,7 @@ static int decode_slice_header(H264Context *h, H264Context *h0)
 
         if (h->ref_count[0]-1 > max[0] || h->ref_count[1]-1 > max[1]){
             av_log(h->s.avctx, AV_LOG_ERROR, "reference overflow %u > %u or %u > %u\n", h->ref_count[0]-1, max[0], h->ref_count[1]-1, max[1]);
-            h->ref_count[0] = h->ref_count[1] = 1;
+            h->ref_count[0] = h->ref_count[1] = 0;
             return AVERROR_INVALIDDATA;
         }
 
@@ -3128,8 +3134,10 @@ static int decode_slice_header(H264Context *h, H264Context *h0)
             h->list_count = 2;
         else
             h->list_count = 1;
-    } else
-        h->ref_count[1]= h->ref_count[0]= h->list_count= 0;
+    } else {
+        h->list_count = 0;
+        h->ref_count[0] = h->ref_count[1] = 0;
+    }
 
     if (!default_ref_list_done)
         ff_h264_fill_default_ref_list(h);

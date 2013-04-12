@@ -334,7 +334,9 @@ static int init_muxer(AVFormatContext *s, AVDictionary **options)
 
     /* set muxer identification string */
     if (s->nb_streams && !(s->streams[0]->codec->flags & CODEC_FLAG_BITEXACT)) {
-        av_dict_set(&s->metadata, "encoder", LIBAVFORMAT_IDENT, 0);
+		if(!av_dict_get(s->metadata, "encoder", NULL,0)) {		// If encoder is not set
+        	av_dict_set(&s->metadata, "encoder", LIBAVFORMAT_IDENT, 0);
+		}
     }
 
     if (options) {

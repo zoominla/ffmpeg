@@ -179,7 +179,7 @@ Follows a BNF description for the filtergraph syntax:
 @var{LINKLABEL}        ::= "[" @var{NAME} "]"
 @var{LINKLABELS}       ::= @var{LINKLABEL} [@var{LINKLABELS}]
 @var{FILTER_ARGUMENTS} ::= sequence of chars (eventually quoted)
-@var{FILTER}           ::= [@var{LINKNAMES}] @var{NAME} ["=" @var{ARGUMENTS}] [@var{LINKNAMES}]
+@var{FILTER}           ::= [@var{LINKLABELS}] @var{NAME} ["=" @var{FILTER_ARGUMENTS}] [@var{LINKLABELS}]
 @var{FILTERCHAIN}      ::= @var{FILTER} [,@var{FILTERCHAIN}]
 @var{FILTERGRAPH}      ::= [sws_flags=@var{flags};] @var{FILTERCHAIN} [;@var{FILTERGRAPH}]
 @end example
@@ -4589,7 +4589,7 @@ Alternatively, the options can be specified as a flat string:
 
 @var{layout}[:@var{nb_frames}[:@var{margin}[:@var{padding}]]]
 
-For example, produce 8×8 PNG tiles of all keyframes (@option{-skip_frame
+For example, produce 8x8 PNG tiles of all keyframes (@option{-skip_frame
 nokey}) in a movie:
 @example
 ffmpeg -skip_frame nokey -i file.avi -vf 'scale=128:72,tile=8x8' -an -vsync 0 keyframes%03d.png

@@ -1479,11 +1479,10 @@ static int open_output_file(OptionsContext *o, const char *filename)
         }
     }
 
-    if (!strcmp(file_oformat->name, "ffm") &&
+    /*if (!strcmp(file_oformat->name, "ffm") &&
         av_strstart(filename, "http:", NULL)) {
         int j;
-        /* special case for files sent to ffserver: we get the stream
-           parameters from ffserver */
+        //special case for files sent to ffserver: we get the stream parameters from ffserver 
         int err = read_ffserver_streams(o, oc, filename);
         if (err < 0) {
             print_error(filename, err);
@@ -1508,7 +1507,7 @@ static int open_output_file(OptionsContext *o, const char *filename)
                 exit(1);
             }
         }
-    } else if (!o->nb_stream_maps) {
+    } else*/ if (!o->nb_stream_maps) {
         char *subtitle_codec_name = NULL;
         /* pick the "best" stream of each type */
 

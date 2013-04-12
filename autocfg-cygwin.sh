@@ -40,7 +40,7 @@ _config_lite="\
 if test $_target = lite ; then
 	_config+=$_config_lite
 else
-    _config+=" --enable-libaacplus --enable-libx264 --prefix=/usr"
+    _config+=" --enable-libx264 --enable-libfdk-aac --prefix=/usr"
 fi
 
 ./$_config
