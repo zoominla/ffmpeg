@@ -29,23 +29,32 @@ _config="configure \
   --extra-libs=-lfreetype \
   --extra-libs=-lfribidi"
 
-_config_lite="\
+_config_lite="configure \
   --disable-ffmpeg \
+  --disable-static \
+  --disable-devices \
+  --disable-avdevice \
+  --disable-ffserver \
   --disable-muxers \
   --disable-encoders \
-  --enable-encoder=mpeg1video \
-  --enable-encoder=huffyuv \
-  --enable-encoder=png \
-  --enable-encoder=rawvideo \
-  --enable-encoder=snow \
-  --enable-encoder=zlib \
-  --enable-encoder=zmbv \
+  --disable-filters \
+  --disable-avfilter \
+  --disable-swresample \
+  --disable-swscale \
+  --disable-postproc \
+  --disable-bsfs \
+  --disable-indevs \
+  --disable-outdevs \
+  --disable-debug \
+  --enable-shared \
   --enable-muxer=rawvideo \
   --enable-muxer=wav \
-  --prefix=/usr/local/ffmpeg"
+  --enable-pthreads \
+  --disable-w32threads \
+  --prefix=/usr/local/ffmpeg_lite"
 
 if test $_target = lite ; then
-	_config+=$_config_lite
+	_config=$_config_lite
 else
     _config+=" --enable-libmp3lame --enable-libaacplus --extra-cflags=-I/usr/local/x264/include --extra-ldflags=-L/usr/local/x264/lib --prefix=/usr/local/ffmpeg"
 fi
