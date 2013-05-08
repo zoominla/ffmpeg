@@ -2,9 +2,7 @@
 _target=no
 test "$1" && _target="$1"
 
-#--enable-devices \ --enable-libtheora \ --enable-postproc \--enable-libopencore-amrnb \
- # --enable-libopencore-amrwb \
-_config_transcli ="configure \
+_config_transcli="configure \
   --enable-gpl \
   --enable-nonfree \
   --enable-version3 \
@@ -22,18 +20,20 @@ _config_transcli ="configure \
   --disable-ffserver \
   --disable-w32threads \
   --extra-cflags=-U__STRICT_ANSI__ \
-  --extra-libs="-Wl,--enable-auto-import" 
+  --extra-cflags=-I/mingw/include \
+  --extra-libs="-Wl,--enable-auto-import" \
   --extra-libs=-liconv -lenca -lexpat -lfribidi \
   --prefix=/usr/local/ffmpeg_transcli"
 
-_config_show = ="configure \
+_config_show="configure \
   --enable-gpl \
   --enable-nonfree \
   --enable-shared \
   --enable-pthreads \
   --enable-memalign-hack \
   --enable-runtime-cpudetect \
-  --enable-libfdk-aac --enable-libx264 \
+  --enable-libx264 \
+  --enable-libfdk-aac \
   --disable-doc \
   --disable-static \
   --disable-ffserver \
@@ -41,7 +41,7 @@ _config_show = ="configure \
   --disable-ffprobe \
   --disable-w32threads \
   --extra-cflags=-U__STRICT_ANSI__ \
-  --extra-libs="-Wl,--enable-auto-import" 
+  --extra-cflags=-I/mingw/include \
   --prefix=/usr/local/ffmpeg_show"
   
 _config_lite="configure \
@@ -66,14 +66,15 @@ _config_lite="configure \
   --enable-muxer=wav \
   --enable-pthreads \
   --disable-w32threads \
+  --extra-cflags=-U__STRICT_ANSI__ \
+  --extra-cflags=-I/mingw/include \
   --prefix=/usr/local/ffmpeg_lite"
 
-if [$_target = lite] ; then
+_config=$_config_transcli
+if test $_target = lite; then
 	_config=$_config_lite
-elif [$_target = show] ; then
-    _config=$_config_show
-else
-    _config=$_config_transcli
+elif test $_target = show; then
+    _config=$_config_show 
 fi
-
+_config+=""
 ./$_config
