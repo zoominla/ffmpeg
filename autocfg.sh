@@ -2,33 +2,48 @@
 _target=no
 test "$1" && _target="$1"
 
-_config="configure \
+#--enable-devices \ --enable-libtheora \ --enable-postproc \--enable-libopencore-amrnb \
+ # --enable-libopencore-amrwb \
+_config_transcli ="configure \
   --enable-gpl \
   --enable-nonfree \
-  --enable-libtheora \
   --enable-version3 \
   --enable-shared \
-  --enable-postproc \
   --enable-pthreads \
   --enable-memalign-hack \
-  --enable-libopencore-amrnb \
-  --enable-libopencore-amrwb \
+  --enable-libopencore-amrnb --enable-libopencore-amrwb \
   --enable-runtime-cpudetect \
   --enable-libass \
+  --enable-libfreetype \
+  --enable-fontconfig \
+  --disable-devices \
   --disable-doc \
   --disable-static \
-  --disable-devices \
-  --disable-avdevice \
   --disable-ffserver \
   --disable-w32threads \
   --extra-cflags=-U__STRICT_ANSI__ \
   --extra-libs="-Wl,--enable-auto-import" 
-  --extra-libs=-liconv \
-  --extra-libs=-lenca \
-  --extra-libs=-lexpat \
-  --extra-libs=-lfreetype \
-  --extra-libs=-lfribidi"
+  --extra-libs=-liconv -lenca -lexpat -lfribidi \
+  --prefix=/usr/local/ffmpeg_transcli"
 
+_config_show = ="configure \
+  --enable-gpl \
+  --enable-nonfree \
+  --enable-shared \
+  --enable-pthreads \
+  --enable-memalign-hack \
+  --enable-runtime-cpudetect \
+  --enable-libfdk-aac --enable-libx264 \
+  --disable-doc \
+  --disable-static \
+  --disable-ffserver \
+  --disable-network \
+  --disable-ffprobe \
+  --disable-w32threads \
+  --extra-cflags=-U__STRICT_ANSI__ \
+  --extra-libs="-Wl,--enable-auto-import" 
+  --prefix=/usr/local/ffmpeg_show"
+  
 _config_lite="configure \
   --disable-ffmpeg \
   --disable-static \
@@ -53,10 +68,12 @@ _config_lite="configure \
   --disable-w32threads \
   --prefix=/usr/local/ffmpeg_lite"
 
-if test $_target = lite ; then
+if [$_target = lite] ; then
 	_config=$_config_lite
+elif [$_target = show] ; then
+    _config=$_config_show
 else
-    _config+=" --enable-libmp3lame --enable-libaacplus --extra-cflags=-I/usr/local/x264/include --extra-ldflags=-L/usr/local/x264/lib --prefix=/usr/local/ffmpeg"
+    _config=$_config_transcli
 fi
 
 ./$_config
