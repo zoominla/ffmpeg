@@ -112,6 +112,10 @@
 static VLC vlc_scalefactors;
 static VLC vlc_spectral[11];
 
+static int output_configure(AACContext *ac,
+                            uint8_t layout_map[MAX_ELEM_ID*4][3], int tags,
+                            int channel_config, enum OCStatus oc_type);
+
 #define overread_err "Input buffer exhausted before END element found\n"
 
 static int count_channels(uint8_t (*layout)[3], int tags)
@@ -373,6 +377,8 @@ static void pop_output_configuration(AACContext *ac) {
         ac->oc[1] = ac->oc[0];
         ac->avctx->channels = ac->oc[1].channels;
         ac->avctx->channel_layout = ac->oc[1].channel_layout;
+        output_configure(ac, ac->oc[1].layout_map, ac->oc[1].layout_map_tags,
+                         ac->oc[1].m4ac.chan_config, ac->oc[1].status);
     }
 }
 
@@ -881,6 +887,11 @@ static av_cold int aac_decode_init(AVCodecContext *avctx)
             else if (avctx->err_recognition & AV_EF_EXPLODE)
                 return AVERROR_INVALIDDATA;
         }
+    }
+
+    if (avctx->channels > MAX_CHANNELS) {
+        av_log(avctx, AV_LOG_ERROR, "Too many channels\n");
+        return AVERROR_INVALIDDATA;
     }
 
     AAC_INIT_VLC_STATIC( 0, 304);

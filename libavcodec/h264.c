@@ -1467,7 +1467,13 @@ static void decode_postinit(H264Context *h, int setup_finished)
     if(   cur->f.pict_type == AV_PICTURE_TYPE_B
        || (h->last_pocs[MAX_DELAYED_PIC_COUNT-2] > INT_MIN && h->last_pocs[MAX_DELAYED_PIC_COUNT-1] - h->last_pocs[MAX_DELAYED_PIC_COUNT-2] > 2))
         out_of_order = FFMAX(out_of_order, 1);
-    if(s->avctx->has_b_frames < out_of_order && !h->sps.bitstream_restriction_flag){
+    if (out_of_order == MAX_DELAYED_PIC_COUNT) {
+        av_log(s->avctx, AV_LOG_VERBOSE, "Invalid POC %d<%d\n", cur->poc, h->last_pocs[0]);
+        for (i = 1; i < MAX_DELAYED_PIC_COUNT; i++)
+            h->last_pocs[i] = INT_MIN;
+        h->last_pocs[0] = cur->poc;
+        cur->mmco_reset = 1;
+    } else if(s->avctx->has_b_frames < out_of_order && !h->sps.bitstream_restriction_flag){
         av_log(s->avctx, AV_LOG_VERBOSE, "Increasing reorder buffer to %d\n", out_of_order);
         s->avctx->has_b_frames = out_of_order;
         s->low_delay = 0;
@@ -2280,7 +2286,7 @@ static int field_end(H264Context *h, int in_setup)
      * past end by one (callers fault) and resync_mb_y != 0
      * causes problems for the first MB line, too.
      */
-    if (!FIELD_PICTURE)
+    if (!FIELD_PICTURE && h->current_slice)
         ff_er_frame_end(s);
 
     ff_MPV_frame_end(s);
@@ -2788,6 +2794,9 @@ static int decode_slice_header(H264Context *h, H264Context *h0)
             Picture *prev = h->short_ref_count ? h->short_ref[0] : NULL;
             av_log(h->s.avctx, AV_LOG_DEBUG, "Frame num gap %d %d\n",
                    h->frame_num, h->prev_frame_num);
+            if (!h->sps.gaps_in_frame_num_allowed_flag)
+                for(i=0; i<FF_ARRAY_ELEMS(h->last_pocs); i++)
+                    h->last_pocs[i] = INT_MIN;
             if (ff_h264_frame_start(h) < 0)
                 return -1;
             h->prev_frame_num++;
