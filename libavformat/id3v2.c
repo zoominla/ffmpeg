@@ -490,9 +490,10 @@ static void read_apic(AVFormatContext *s, AVIOContext *pb, int taglen, char *tag
     }
 
     apic->len   = taglen;
-    apic->data  = av_malloc(taglen);
+    apic->data  = av_malloc(taglen + FF_INPUT_BUFFER_PADDING_SIZE);
     if (!apic->data || !apic->len || avio_read(pb, apic->data, taglen) != taglen)
         goto fail;
+    memset(apic->data + taglen, 0, FF_INPUT_BUFFER_PADDING_SIZE);
 
     new_extra->tag    = "APIC";
     new_extra->data   = apic;
@@ -704,9 +705,11 @@ static void ff_id3v2_parse(AVFormatContext *s, int len, uint8_t version, uint8_t
                 uint8_t *b;
 
                 b = buffer;
-                while (avio_tell(s->pb) < end && b - buffer < tlen) {
+                while (avio_tell(s->pb) < end && b - buffer < tlen && !s->pb->eof_reached) {
                     *b++ = avio_r8(s->pb);
-                    if (*(b - 1) == 0xff && avio_tell(s->pb) < end - 1 && b - buffer < tlen) {
+                    if (*(b - 1) == 0xff && avio_tell(s->pb) < end - 1 &&
+                        b - buffer < tlen &&
+                        !s->pb->eof_reached ) {
                         uint8_t val = avio_r8(s->pb);
                         *b++ = val ? val : avio_r8(s->pb);
                     }

@@ -2,6 +2,65 @@ Entries are sorted chronologically from oldest to youngest within each release,
 releases are sorted from youngest to oldest.
 
 version <next>:
+- aac: check the maximum number of channels to avoid invalid writes
+- indeo3: fix off by one in MV validity check
+- id3v2: check for end of file while unescaping tags to avoid invalid
+  writes, reported by Google Security Team
+- afifo: fix request_samples on the last frame in certain cases
+- hls, segment: fix splitting for audio-only streams
+- wav: Always seek to an even offset, Bug #500, LP: #1174737
+- swscale: Use alpha from the right row in yuva2rgba_c, Bug #504
+- indeo3: use unaligned reads on reference blocks, Bug #503
+- oma: properly forward errors in oma_read_packet
+- af_asyncts: fix offset calculation
+
+Most of the following fixes resulted from test samples that the Google
+Security Team has kindly made available to us:
+
+- af_channelmap: sanity check input channel indices in all cases
+- avfiltergraph: check for sws opts being non-NULL before using them
+- bmv: check for len being valid in bmv_decode_frame()
+- configure: Enable hwaccels without external dependencies by default
+- dfa: check for invalid access in decode_wdlt()
+- id3v2: pad the APIC packets as required by lavc
+- indeo3: check motion vectors
+- indeo3: fix data size check
+- indeo3: switch parsing the header to bytestream2
+- lavf: make sure stream probe data gets freed
+- matroska: Update the available size after lace parsing
+- matroska: fix a corner case in ebml-lace parsing
+- matroska: pass the lace size to the matroska_parse_rm_audio
+- mp3dec: fallback to generic seeking when a TOC is not present
+- oggdec: fix faulty cleanup prototype
+- oma: Validate sample rates
+- qdm2: check that the FFT size is a power of 2
+- riff: check for eof if chunk size and code are 0 to prevent an infinite loop
+- rv10: check that extradata is large enough
+- svq1dec: check that the reference frame has the same dimensions as the current one
+- svq1dec: clip motion vectors to the frame size
+- xmv: check audio track parameters validity
+- xmv: do not leak memory in the error paths in xmv_read_header()
+- atrac3: avoid oversized shifting in decode_bytes()
+- eamad: allocate a dummy reference frame when the real one is missing
+- ffv1: fix calculating slice dimensions for version 2
+- flacdec: simplify bounds checking in flac_probe()
+- h264: check for luma and chroma bit dept being equal (CVE-2013-2277)
+- hqdn3d: Fix out of array read in LOWPASS
+- iff: validate CMAP palette size (CVE-2013-2495)
+- ivi_common: do not call MC for intra frames when dc_transform is unset
+- libmp3lame: use the correct remaining buffer size when flushing
+- lzo: fix overflow checking in copy_backptr()
+- mp3dec: Fix VBR bit rate parsing
+- png: use av_mallocz_array() for the zlib zalloc function
+- roqvideodec: fix a potential infinite loop in roqvideo_decode_frame()
+- shorten: fix various programming mistakes
+- vf_gradfun: fix uninitialized variable use
+- vf_hqdn3d: fix uninitialized variable use
+- vmdaudio: fix invalid reads when packet size is not a multiple of chunk size
+- wmadec: require block_align to be set
+- wmaprodec: require block_align to be set
+- wmaprodec: return an error, not 0, when the input is too small
+- xxan: fix invalid memory access in xan_decode_frame_type0()
 - h264: fix deadlocks with broken/fuzzed files
 - flvdec: make decoder more robust
 - vorbisdec: fix buffer overflow (CVE-2013-0894)
@@ -26,7 +85,7 @@ version <next>:
 - libopencore-amr: Conditionally compile decoder and encoder bits
 - arm: Fall back to runtime cpu feature detection via /proc/cpuinfo
 - xxan: properly handle odd heights
-- msrledec: check bounds before constructing a possibly invalid pointer,
+- msrledec: check bounds before constructing a possibly invalid pointer (CVE-2496)
 - qtrle: fix the topmost line for 1bit
 - aasc: fix output for msrle compression
 - yop: check for input overreads
