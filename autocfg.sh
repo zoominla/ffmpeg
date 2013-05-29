@@ -1,7 +1,20 @@
 # !/bin/sh
 _target=no
 test "$1" && _target="$1"
-
+#--disable-everything \
+#  --enable-demuxer=rawvideo \
+#  --enable-demuxer=pcm_s16le \
+#  --enable-demuxer=pcm_u16le \
+ # --enable-demuxer=pcm_f32le \
+ # --enable-demuxer=pcm_u8 \
+ # --enable-decoder=rawvideo \
+ # --enable-decoder=pcm_s16le \
+ # --enable-decoder=pcm_u16le \
+ # --enable-decoder=pcm_f32le \
+ # --enable-decoder=pcm_u8 \
+ # --enable-encoder=libx264 \
+ # --enable-encoder=libfdk_aac \
+ 
 _config_transcli="configure \
   --enable-gpl \
   --enable-nonfree \
@@ -10,10 +23,10 @@ _config_transcli="configure \
   --enable-pthreads \
   --enable-memalign-hack \
   --enable-libopencore-amrnb --enable-libopencore-amrwb \
+  --enable-libx264 --enable-libfdk-aac \
   --enable-runtime-cpudetect \
   --enable-libass \
   --enable-libfreetype \
-  --enable-fontconfig \
   --disable-devices \
   --disable-doc \
   --disable-static \
@@ -22,8 +35,12 @@ _config_transcli="configure \
   --extra-cflags=-U__STRICT_ANSI__ \
   --extra-cflags=-I/mingw/include \
   --extra-libs="-Wl,--enable-auto-import" \
-  --extra-libs=-liconv -lenca -lexpat -lfribidi \
+  --extra-libs=-liconv \
+  --extra-libs=-lenca \
+  --extra-libs=-lexpat \
+  --extra-libs=-lfribidi \
   --prefix=/usr/local/ffmpeg_transcli"
+
 
 _config_show="configure \
   --enable-gpl \
@@ -34,6 +51,25 @@ _config_show="configure \
   --enable-runtime-cpudetect \
   --enable-libx264 \
   --enable-libfdk-aac \
+  --enable-librtmp \
+  --disable-muxers \
+  --disable-protocols \
+  --disable-devices \
+  --enable-muxer=flv \
+  --enable-muxer=mp4 \
+  --enable-indev=dshow \
+  --enable-protocol=rtmp \
+  --enable-protocol=rtmps \
+  --enable-protocol=file \
+  --disable-encoders \
+  --enable-encoder=libx264 \
+  --enable-encoder=libfdk_aac \
+  --disable-decoders \
+  --enable-decoder=rawvideo \
+  --enable-decoder=pcm_s16le \
+  --enable-decoder=pcm_u16le \
+  --enable-decoder=pcm_f32le \
+  --enable-decoder=pcm_u8 \
   --disable-doc \
   --disable-static \
   --disable-ffserver \
