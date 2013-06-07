@@ -25,7 +25,6 @@
  */
 
 #include "avcodec.h"
-#include "dsputil.h"
 #include "h264qpel.h"
 #include "rv34dsp.h"
 #include "libavutil/avassert.h"
@@ -34,7 +33,7 @@
 #define RV40_LOWPASS(OPNAME, OP) \
 static av_unused void OPNAME ## rv40_qpel8_h_lowpass(uint8_t *dst, uint8_t *src, int dstStride, int srcStride,\
                                                      const int h, const int C1, const int C2, const int SHIFT){\
-    uint8_t *cm = ff_cropTbl + MAX_NEG_CROP;\
+    const uint8_t *cm = ff_cropTbl + MAX_NEG_CROP;\
     int i;\
     for(i = 0; i < h; i++)\
     {\
@@ -53,7 +52,7 @@ static av_unused void OPNAME ## rv40_qpel8_h_lowpass(uint8_t *dst, uint8_t *src,
 \
 static void OPNAME ## rv40_qpel8_v_lowpass(uint8_t *dst, uint8_t *src, int dstStride, int srcStride,\
                                            const int w, const int C1, const int C2, const int SHIFT){\
-    uint8_t *cm = ff_cropTbl + MAX_NEG_CROP;\
+    const uint8_t *cm = ff_cropTbl + MAX_NEG_CROP;\
     int i;\
     for(i = 0; i < w; i++)\
     {\
@@ -105,72 +104,84 @@ static void OPNAME ## rv40_qpel16_h_lowpass(uint8_t *dst, uint8_t *src, int dstS
 \
 
 #define RV40_MC(OPNAME, SIZE) \
-static void OPNAME ## rv40_qpel ## SIZE ## _mc10_c(uint8_t *dst, uint8_t *src, int stride){\
+static void OPNAME ## rv40_qpel ## SIZE ## _mc10_c(uint8_t *dst, uint8_t *src, ptrdiff_t stride)\
+{\
     OPNAME ## rv40_qpel ## SIZE ## _h_lowpass(dst, src, stride, stride, SIZE, 52, 20, 6);\
 }\
 \
-static void OPNAME ## rv40_qpel ## SIZE ## _mc30_c(uint8_t *dst, uint8_t *src, int stride){\
+static void OPNAME ## rv40_qpel ## SIZE ## _mc30_c(uint8_t *dst, uint8_t *src, ptrdiff_t stride)\
+{\
     OPNAME ## rv40_qpel ## SIZE ## _h_lowpass(dst, src, stride, stride, SIZE, 20, 52, 6);\
 }\
 \
-static void OPNAME ## rv40_qpel ## SIZE ## _mc01_c(uint8_t *dst, uint8_t *src, int stride){\
+static void OPNAME ## rv40_qpel ## SIZE ## _mc01_c(uint8_t *dst, uint8_t *src, ptrdiff_t stride)\
+{\
     OPNAME ## rv40_qpel ## SIZE ## _v_lowpass(dst, src, stride, stride, SIZE, 52, 20, 6);\
 }\
 \
-static void OPNAME ## rv40_qpel ## SIZE ## _mc11_c(uint8_t *dst, uint8_t *src, int stride){\
+static void OPNAME ## rv40_qpel ## SIZE ## _mc11_c(uint8_t *dst, uint8_t *src, ptrdiff_t stride)\
+{\
     uint8_t full[SIZE*(SIZE+5)];\
     uint8_t * const full_mid = full + SIZE*2;\
     put_rv40_qpel ## SIZE ## _h_lowpass(full, src - 2*stride, SIZE, stride, SIZE+5, 52, 20, 6);\
     OPNAME ## rv40_qpel ## SIZE ## _v_lowpass(dst, full_mid, stride, SIZE, SIZE, 52, 20, 6);\
 }\
 \
-static void OPNAME ## rv40_qpel ## SIZE ## _mc21_c(uint8_t *dst, uint8_t *src, int stride){\
+static void OPNAME ## rv40_qpel ## SIZE ## _mc21_c(uint8_t *dst, uint8_t *src, ptrdiff_t stride)\
+{\
     uint8_t full[SIZE*(SIZE+5)];\
     uint8_t * const full_mid = full + SIZE*2;\
     put_rv40_qpel ## SIZE ## _h_lowpass(full, src - 2*stride, SIZE, stride, SIZE+5, 20, 20, 5);\
     OPNAME ## rv40_qpel ## SIZE ## _v_lowpass(dst, full_mid, stride, SIZE, SIZE, 52, 20, 6);\
 }\
 \
-static void OPNAME ## rv40_qpel ## SIZE ## _mc31_c(uint8_t *dst, uint8_t *src, int stride){\
+static void OPNAME ## rv40_qpel ## SIZE ## _mc31_c(uint8_t *dst, uint8_t *src, ptrdiff_t stride)\
+{\
     uint8_t full[SIZE*(SIZE+5)];\
     uint8_t * const full_mid = full + SIZE*2;\
     put_rv40_qpel ## SIZE ## _h_lowpass(full, src - 2*stride, SIZE, stride, SIZE+5, 20, 52, 6);\
     OPNAME ## rv40_qpel ## SIZE ## _v_lowpass(dst, full_mid, stride, SIZE, SIZE, 52, 20, 6);\
 }\
 \
-static void OPNAME ## rv40_qpel ## SIZE ## _mc12_c(uint8_t *dst, uint8_t *src, int stride){\
+static void OPNAME ## rv40_qpel ## SIZE ## _mc12_c(uint8_t *dst, uint8_t *src, ptrdiff_t stride)\
+{\
     uint8_t full[SIZE*(SIZE+5)];\
     uint8_t * const full_mid = full + SIZE*2;\
     put_rv40_qpel ## SIZE ## _h_lowpass(full, src - 2*stride, SIZE, stride, SIZE+5, 52, 20, 6);\
     OPNAME ## rv40_qpel ## SIZE ## _v_lowpass(dst, full_mid, stride, SIZE, SIZE, 20, 20, 5);\
 }\
 \
-static void OPNAME ## rv40_qpel ## SIZE ## _mc22_c(uint8_t *dst, uint8_t *src, int stride){\
+static void OPNAME ## rv40_qpel ## SIZE ## _mc22_c(uint8_t *dst, uint8_t *src, ptrdiff_t stride)\
+{\
     uint8_t full[SIZE*(SIZE+5)];\
     uint8_t * const full_mid = full + SIZE*2;\
     put_rv40_qpel ## SIZE ## _h_lowpass(full, src - 2*stride, SIZE, stride, SIZE+5, 20, 20, 5);\
     OPNAME ## rv40_qpel ## SIZE ## _v_lowpass(dst, full_mid, stride, SIZE, SIZE, 20, 20, 5);\
 }\
 \
-static void OPNAME ## rv40_qpel ## SIZE ## _mc32_c(uint8_t *dst, uint8_t *src, int stride){\
+static void OPNAME ## rv40_qpel ## SIZE ## _mc32_c(uint8_t *dst, uint8_t *src, ptrdiff_t stride)\
+{\
     uint8_t full[SIZE*(SIZE+5)];\
     uint8_t * const full_mid = full + SIZE*2;\
     put_rv40_qpel ## SIZE ## _h_lowpass(full, src - 2*stride, SIZE, stride, SIZE+5, 20, 52, 6);\
     OPNAME ## rv40_qpel ## SIZE ## _v_lowpass(dst, full_mid, stride, SIZE, SIZE, 20, 20, 5);\
 }\
 \
-static void OPNAME ## rv40_qpel ## SIZE ## _mc03_c(uint8_t *dst, uint8_t *src, int stride){\
+static void OPNAME ## rv40_qpel ## SIZE ## _mc03_c(uint8_t *dst, uint8_t *src, ptrdiff_t stride)\
+{\
     OPNAME ## rv40_qpel ## SIZE ## _v_lowpass(dst, src, stride, stride, SIZE, 20, 52, 6);\
 }\
 \
-static void OPNAME ## rv40_qpel ## SIZE ## _mc13_c(uint8_t *dst, uint8_t *src, int stride){\
+static void OPNAME ## rv40_qpel ## SIZE ## _mc13_c(uint8_t *dst, uint8_t *src, ptrdiff_t stride)\
+{\
     uint8_t full[SIZE*(SIZE+5)];\
     uint8_t * const full_mid = full + SIZE*2;\
     put_rv40_qpel ## SIZE ## _h_lowpass(full, src - 2*stride, SIZE, stride, SIZE+5, 52, 20, 6);\
     OPNAME ## rv40_qpel ## SIZE ## _v_lowpass(dst, full_mid, stride, SIZE, SIZE, 20, 52, 6);\
 }\
 \
-static void OPNAME ## rv40_qpel ## SIZE ## _mc23_c(uint8_t *dst, uint8_t *src, int stride){\
+static void OPNAME ## rv40_qpel ## SIZE ## _mc23_c(uint8_t *dst, uint8_t *src, ptrdiff_t stride)\
+{\
     uint8_t full[SIZE*(SIZE+5)];\
     uint8_t * const full_mid = full + SIZE*2;\
     put_rv40_qpel ## SIZE ## _h_lowpass(full, src - 2*stride, SIZE, stride, SIZE+5, 20, 20, 5);\
@@ -340,7 +351,7 @@ static av_always_inline void rv40_weak_loop_filter(uint8_t *src,
                                                    const int lim_q1,
                                                    const int lim_p1)
 {
-    uint8_t *cm = ff_cropTbl + MAX_NEG_CROP;
+    const uint8_t *cm = ff_cropTbl + MAX_NEG_CROP;
     int i, t, u, diff;
 
     for (i = 0; i < 4; i++, src += stride) {
@@ -519,10 +530,11 @@ static int rv40_v_loop_filter_strength(uint8_t *src, ptrdiff_t stride,
     return rv40_loop_filter_strength(src, 1, stride, beta, beta2, edge, p1, q1);
 }
 
-av_cold void ff_rv40dsp_init(RV34DSPContext *c, DSPContext* dsp) {
+av_cold void ff_rv40dsp_init(RV34DSPContext *c)
+{
     H264QpelContext qpel;
 
-    ff_rv34dsp_init(c, dsp);
+    ff_rv34dsp_init(c);
     ff_h264qpel_init(&qpel, 8);
 
     c->put_pixels_tab[0][ 0] = qpel.put_h264_qpel_pixels_tab[0][0];
@@ -608,7 +620,7 @@ av_cold void ff_rv40dsp_init(RV34DSPContext *c, DSPContext* dsp) {
     c->rv40_loop_filter_strength[1] = rv40_v_loop_filter_strength;
 
     if (ARCH_X86)
-        ff_rv40dsp_init_x86(c, dsp);
+        ff_rv40dsp_init_x86(c);
     if (ARCH_ARM)
-        ff_rv40dsp_init_arm(c, dsp);
+        ff_rv40dsp_init_arm(c);
 }

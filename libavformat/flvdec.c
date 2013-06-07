@@ -742,9 +742,10 @@ static int flv_read_packet(AVFormatContext *s, AVPacket *pkt)
         }
     }
     if(i == s->nb_streams){
+        static const enum AVMediaType stream_types[] = {AVMEDIA_TYPE_VIDEO, AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_DATA};
         av_log(s, AV_LOG_WARNING, "Stream discovered after head already parsed\n");
         st = create_stream(s,
-             (int[]){AVMEDIA_TYPE_VIDEO, AVMEDIA_TYPE_AUDIO, AVMEDIA_TYPE_DATA}[stream_type]);
+                           stream_types[stream_type]);
         if (!st)
             return AVERROR(ENOMEM);
 
@@ -757,7 +758,7 @@ static int flv_read_packet(AVFormatContext *s, AVPacket *pkt)
         avio_seek(s->pb, next, SEEK_SET);
         continue;
     }
-    if ((flags & FLV_VIDEO_FRAMETYPE_MASK) == FLV_FRAME_KEY)
+    if ((flags & FLV_VIDEO_FRAMETYPE_MASK) == FLV_FRAME_KEY || stream_type == FLV_STREAM_TYPE_AUDIO)
         av_add_index_entry(st, pos, dts, size, 0, AVINDEX_KEYFRAME);
     break;
  }

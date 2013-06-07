@@ -144,16 +144,16 @@ typedef struct {
 #define FLAGS AV_OPT_FLAG_FILTERING_PARAM|AV_OPT_FLAG_VIDEO_PARAM
 
 static const AVOption delogo_options[]= {
-    {"x",    "set logo x position",       OFFSET(x),    AV_OPT_TYPE_INT, {.i64 = -1}, -1, INT_MAX, FLAGS},
-    {"y",    "set logo y position",       OFFSET(y),    AV_OPT_TYPE_INT, {.i64 = -1}, -1, INT_MAX, FLAGS},
-    {"w",    "set logo width",            OFFSET(w),    AV_OPT_TYPE_INT, {.i64 = -1}, -1, INT_MAX, FLAGS},
-    {"h",    "set logo height",           OFFSET(h),    AV_OPT_TYPE_INT, {.i64 = -1}, -1, INT_MAX, FLAGS},
-    {"band", "set delogo area band size", OFFSET(band), AV_OPT_TYPE_INT, {.i64 =  4}, -1, INT_MAX, FLAGS},
-    {"t",    "set delogo area band size", OFFSET(band), AV_OPT_TYPE_INT, {.i64 =  4}, -1, INT_MAX, FLAGS},
-    {"show", "show delogo area",          OFFSET(show), AV_OPT_TYPE_INT, {.i64 =  0},  0,       1, FLAGS},
+    { "x",    "set logo x position",       OFFSET(x),    AV_OPT_TYPE_INT, { .i64 = -1 }, -1, INT_MAX, FLAGS },
+    { "y",    "set logo y position",       OFFSET(y),    AV_OPT_TYPE_INT, { .i64 = -1 }, -1, INT_MAX, FLAGS },
+    { "w",    "set logo width",            OFFSET(w),    AV_OPT_TYPE_INT, { .i64 = -1 }, -1, INT_MAX, FLAGS },
+    { "h",    "set logo height",           OFFSET(h),    AV_OPT_TYPE_INT, { .i64 = -1 }, -1, INT_MAX, FLAGS },
+    { "band", "set delogo area band size", OFFSET(band), AV_OPT_TYPE_INT, { .i64 =  4 }, -1, INT_MAX, FLAGS },
+    { "t",    "set delogo area band size", OFFSET(band), AV_OPT_TYPE_INT, { .i64 =  4 }, -1, INT_MAX, FLAGS },
+    { "show", "show delogo area",          OFFSET(show), AV_OPT_TYPE_INT, { .i64 =  0 },  0, 1,       FLAGS },
     {"start", "set start time",           OFFSET(startSec), AV_OPT_TYPE_DOUBLE, {.dbl =  -1.0}, -1.0, INT_MAX, FLAGS},
 	{"end",  "set end time", 		      OFFSET(endSec), AV_OPT_TYPE_DOUBLE, {.dbl =	-1.0}, -1.0, INT_MAX, FLAGS},
-	{NULL},
+	{ NULL },
 };
 
 AVFILTER_DEFINE_CLASS(delogo);
@@ -171,26 +171,13 @@ static int query_formats(AVFilterContext *ctx)
     return 0;
 }
 
-static av_cold int init(AVFilterContext *ctx, const char *args)
+static av_cold int init(AVFilterContext *ctx)
 {
-    DelogoContext *delogo = ctx->priv;
-    int ret = 0;
-
-    delogo->class = &delogo_class;
-    av_opt_set_defaults(delogo);
-
-    if (args)
-        ret = sscanf(args, "%d:%d:%d:%d:%d:%f:%f",&delogo->x, &delogo->y, 
-                     &delogo->w, &delogo->h, &delogo->band, &delogo->startSec, &delogo->endSec);
-    if (ret == 7) {
-        if (delogo->band < 0)
-            delogo->show = 1;
-    } else if ((ret = (av_set_options_string(delogo, args, "=", ":"))) < 0)
-        return ret;
+    DelogoContext *s = ctx->priv;
 
 #define CHECK_UNSET_OPT(opt)                                            \
-    if (delogo->opt == -1) {                                            \
-        av_log(delogo, AV_LOG_ERROR, "Option %s was not set.\n", #opt); \
+    if (s->opt == -1) {                                            \
+        av_log(s, AV_LOG_ERROR, "Option %s was not set.\n", #opt); \
         return AVERROR(EINVAL);                                         \
     }
     CHECK_UNSET_OPT(x);
@@ -198,51 +185,54 @@ static av_cold int init(AVFilterContext *ctx, const char *args)
     CHECK_UNSET_OPT(w);
     CHECK_UNSET_OPT(h);
 
-    if (delogo->show)
-        delogo->band = 4;
+    if (s->band < 0 || s->show) {
+        s->show = 1;
+        s->band = 4;
+    }
 
     av_log(ctx, AV_LOG_VERBOSE, "x:%d y:%d, w:%d h:%d band:%d show:%d start:%f end:%f\n",
-           delogo->x, delogo->y, delogo->w, delogo->h, delogo->band, delogo->show, delogo->startSec, delogo->endSec);
+           s->x, s->y, s->w, s->h, s->band, s->show, s->startSec, s->endSec);
 
-    delogo->w += delogo->band*2;
-    delogo->h += delogo->band*2;
-    delogo->x -= delogo->band;
-    delogo->y -= delogo->band;
+    s->w += s->band*2;
+    s->h += s->band*2;
+    s->x -= s->band;
+    s->y -= s->band;
 
     return 0;
 }
 
-static int filter_frame(AVFilterLink *inlink, AVFilterBufferRef *in)
+static int filter_frame(AVFilterLink *inlink, AVFrame *in)
 {
-    DelogoContext *delogo = inlink->dst->priv;
+    DelogoContext *s = inlink->dst->priv;
     AVFilterLink *outlink = inlink->dst->outputs[0];
     const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(inlink->format);
-    AVFilterBufferRef *out;
+    AVFrame *out;
     int hsub0 = desc->log2_chroma_w;
     int vsub0 = desc->log2_chroma_h;
     int direct = 0;
     int plane;
-	int64_t curPts = in->pts;
-	
-    if (in->perms & AV_PERM_WRITE) {
+    int64_t curPts = in->pts;
+
+    if (av_frame_is_writable(in)) {
         direct = 1;
         out = in;
     } else {
-        out = ff_get_video_buffer(outlink, AV_PERM_WRITE, outlink->w, outlink->h);
+        out = ff_get_video_buffer(outlink, outlink->w, outlink->h);
         if (!out) {
-            avfilter_unref_bufferp(&in);
+            av_frame_free(&in);
             return AVERROR(ENOMEM);
         }
-        avfilter_copy_buffer_ref_props(out, in);
+
+        av_frame_copy_props(out, in);
     }
 
 	// Skip time window that no need to delogo
 	if(curPts != AV_NOPTS_VALUE) {
 		double curTime = curPts * av_q2d(inlink->time_base);
-		av_log(delogo, AV_LOG_VERBOSE, "=======pts:%"PRId64"===CurTime:%1.3f\n", curPts, curTime);
-		if( (delogo->startSec < -0.1f && delogo->endSec > -0.1f) ||
-			(delogo->startSec > -0.1f && curTime < delogo->startSec) ||
-			(delogo->endSec > -0.1f && curTime > delogo->endSec)) {
+		av_log(s, AV_LOG_VERBOSE, "=======pts:%"PRId64"===CurTime:%1.3f\n", curPts, curTime);
+		if( (s->startSec < -0.1f && s->endSec > -0.1f) ||
+			(s->startSec > -0.1f && curTime < s->startSec) ||
+			(s->endSec > -0.1f && curTime > s->endSec)) {
 			/* No need to delogo beyond the time window*/
 			goto delogo_final;
 		}
@@ -254,16 +244,18 @@ static int filter_frame(AVFilterLink *inlink, AVFilterBufferRef *in)
 
         apply_delogo(out->data[plane], out->linesize[plane],
                      in ->data[plane], in ->linesize[plane],
-                     inlink->w>>hsub, inlink->h>>vsub,
-                     delogo->x>>hsub, delogo->y>>vsub,
-                     delogo->w>>hsub, delogo->h>>vsub,
-                     delogo->band>>FFMIN(hsub, vsub),
-                     delogo->show, direct);
+                     FF_CEIL_RSHIFT(inlink->w, hsub),
+                     FF_CEIL_RSHIFT(inlink->h, vsub),
+                     s->x>>hsub, s->y>>vsub,
+                     FF_CEIL_RSHIFT(s->w, hsub),
+                     FF_CEIL_RSHIFT(s->h, vsub),
+                     s->band>>FFMIN(hsub, vsub),
+                     s->show, direct);
     }
 
     delogo_final:
     if (!direct)
-        avfilter_unref_bufferp(&in);
+        av_frame_free(&in);
 
     return ff_filter_frame(outlink, out);
 }
@@ -274,7 +266,6 @@ static const AVFilterPad avfilter_vf_delogo_inputs[] = {
         .type             = AVMEDIA_TYPE_VIDEO,
         .get_video_buffer = ff_null_get_video_buffer,
         .filter_frame     = filter_frame,
-        .min_perms        = AV_PERM_WRITE | AV_PERM_READ,
     },
     { NULL }
 };
@@ -291,10 +282,11 @@ AVFilter avfilter_vf_delogo = {
     .name          = "delogo",
     .description   = NULL_IF_CONFIG_SMALL("Remove logo from input video."),
     .priv_size     = sizeof(DelogoContext),
+    .priv_class    = &delogo_class,
     .init          = init,
     .query_formats = query_formats,
 
     .inputs    = avfilter_vf_delogo_inputs,
     .outputs   = avfilter_vf_delogo_outputs,
-    .priv_class = &delogo_class,
+    .flags     = AVFILTER_FLAG_SUPPORT_TIMELINE_GENERIC,
 };

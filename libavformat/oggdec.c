@@ -195,7 +195,7 @@ static int ogg_replace_stream(AVFormatContext *s, uint32_t serial, int nsegs)
         if (i >= ogg->nstreams)
             return ogg_new_stream(s, serial);
     } else if (ogg->nstreams != 1) {
-        av_log_missing_feature(s, "Changing stream parameters in multistream ogg", 0);
+        avpriv_report_missing_feature(s, "Changing stream parameters in multistream ogg");
         return AVERROR_PATCHWELCOME;
     }
 
@@ -735,6 +735,11 @@ static int ogg_read_packet(AVFormatContext *s, AVPacket *pkt)
     int pstart, psize;
     int64_t fpos, pts, dts;
 
+    if (s->io_repositioned) {
+        ogg_reset(s);
+        s->io_repositioned = 0;
+    }
+
     //Get an ogg packet
 retry:
     do {
@@ -849,5 +854,5 @@ AVInputFormat ff_ogg_demuxer = {
     .read_seek      = ogg_read_seek,
     .read_timestamp = ogg_read_timestamp,
     .extensions     = "ogg",
-    .flags          = AVFMT_GENERIC_INDEX,
+    .flags          = AVFMT_GENERIC_INDEX | AVFMT_TS_DISCONT,
 };

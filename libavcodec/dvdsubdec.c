@@ -21,11 +21,11 @@
 #include "avcodec.h"
 #include "get_bits.h"
 #include "dsputil.h"
+#include "libavutil/attributes.h"
 #include "libavutil/colorspace.h"
 #include "libavutil/opt.h"
 #include "libavutil/imgutils.h"
-
-//#define DEBUG
+#include "libavutil/avstring.h"
 
 typedef struct DVDSubContext
 {
@@ -39,7 +39,7 @@ typedef struct DVDSubContext
 
 static void yuv_a_to_rgba(const uint8_t *ycbcr, const uint8_t *alpha, uint32_t *rgba, int num_values)
 {
-    uint8_t *cm = ff_cropTbl + MAX_NEG_CROP;
+    const uint8_t *cm = ff_cropTbl + MAX_NEG_CROP;
     uint8_t r, g, b;
     int i, y, cb, cr;
     int r_add, g_add, b_add;
@@ -523,7 +523,7 @@ static void parse_palette(DVDSubContext *ctx, char *p)
     ctx->has_palette = 1;
     for(i=0;i<16;i++) {
         ctx->palette[i] = strtoul(p, &p, 16);
-        while(*p == ',' || isspace(*p))
+        while(*p == ',' || av_isspace(*p))
             p++;
     }
 }
@@ -564,7 +564,7 @@ static int dvdsub_parse_extradata(AVCodecContext *avctx)
     return 1;
 }
 
-static int dvdsub_init(AVCodecContext *avctx)
+static av_cold int dvdsub_init(AVCodecContext *avctx)
 {
     DVDSubContext *ctx = avctx->priv_data;
     int ret;

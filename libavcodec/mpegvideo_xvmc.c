@@ -23,7 +23,6 @@
 #include <X11/extensions/XvMC.h>
 
 #include "avcodec.h"
-#include "dsputil.h"
 #include "mpegvideo.h"
 
 #undef NDEBUG
@@ -145,7 +144,7 @@ void ff_xvmc_field_end(MpegEncContext *s)
     assert(render);
 
     if (render->filled_mv_blocks_num > 0)
-        ff_draw_horiz_band(s, 0, 0);
+        ff_mpeg_draw_horiz_band(s, 0, 0);
 }
 
 /**
@@ -179,7 +178,7 @@ void ff_xvmc_decode_mb(MpegEncContext *s)
 
     // Do I need to export quant when I could not perform postprocessing?
     // Anyway, it doesn't hurt.
-    s->current_picture.f.qscale_table[mb_xy] = s->qscale;
+    s->current_picture.qscale_table[mb_xy] = s->qscale;
 
     // start of XVMC-specific code
     render = (struct xvmc_pix_fmt*)s->current_picture.f.data[2];
@@ -328,5 +327,5 @@ void ff_xvmc_decode_mb(MpegEncContext *s)
 
 
     if (render->filled_mv_blocks_num == render->allocated_mv_blocks)
-        ff_draw_horiz_band(s, 0, 0);
+        ff_mpeg_draw_horiz_band(s, 0, 0);
 }

@@ -35,6 +35,7 @@ _config_transcli="configure \
   --extra-cflags=-U__STRICT_ANSI__ \
   --extra-cflags=-I/mingw/include \
   --extra-libs="-Wl,--enable-auto-import" \
+  --extra-libs=-L/mingw/lib \
   --extra-libs=-lenca \
   --extra-libs=-liconv \
   --extra-libs=-lexpat \

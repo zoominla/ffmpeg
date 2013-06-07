@@ -110,7 +110,7 @@ typedef struct HLSContext {
 static int read_chomp_line(AVIOContext *s, char *buf, int maxlen)
 {
     int len = ff_get_line(s, buf, maxlen);
-    while (len > 0 && isspace(buf[len - 1]))
+    while (len > 0 && av_isspace(buf[len - 1]))
         buf[--len] = '\0';
     return len;
 }
@@ -475,7 +475,7 @@ reload:
 
 static int hls_read_header(AVFormatContext *s)
 {
-    URLContext *u = s->pb->opaque;
+    URLContext *u = (s->flags & AVFMT_FLAG_CUSTOM_IO) ? NULL : s->pb->opaque;
     HLSContext *c = s->priv_data;
     int ret = 0, i, j, stream_offset = 0;
 

@@ -49,6 +49,7 @@ typedef struct HLSContext {
     int has_video;
     int64_t start_pts;
     int64_t end_pts;
+    int64_t duration;      ///< last segment duration computed so far, in seconds
     int nb_entries;
     ListEntry *list;
     ListEntry *end_list;
@@ -252,6 +253,7 @@ static int hls_write_packet(AVFormatContext *s, AVPacket *pkt)
     AVFormatContext *oc = hls->avf;
     AVStream *st = s->streams[pkt->stream_index];
     int64_t end_pts = hls->recording_time * hls->number;
+    int is_ref_pkt = 1;
     int ret, can_split = 1;
 
     if (hls->start_pts == AV_NOPTS_VALUE) {
@@ -262,17 +264,23 @@ static int hls_write_packet(AVFormatContext *s, AVPacket *pkt)
     if (hls->has_video) {
         can_split = st->codec->codec_type == AVMEDIA_TYPE_VIDEO &&
                     pkt->flags & AV_PKT_FLAG_KEY;
+        is_ref_pkt = st->codec->codec_type == AVMEDIA_TYPE_VIDEO;
     }
+    if (pkt->pts == AV_NOPTS_VALUE)
+        is_ref_pkt = can_split = 0;
+
+    if (is_ref_pkt)
+        hls->duration = av_rescale(pkt->pts - hls->end_pts,
+                                   st->time_base.num, st->time_base.den);
 
     if (can_split && av_compare_ts(pkt->pts - hls->start_pts, st->time_base,
                                    end_pts, AV_TIME_BASE_Q) >= 0) {
-        ret = append_entry(hls, av_rescale(pkt->pts - hls->end_pts,
-                                           st->time_base.num,
-                                           st->time_base.den));
+        ret = append_entry(hls, hls->duration);
         if (ret)
             return ret;
 
         hls->end_pts = pkt->pts;
+        hls->duration = 0;
 
         av_write_frame(oc, NULL); /* Flush any buffered data */
         avio_close(oc->pb);
@@ -302,6 +310,7 @@ static int hls_write_trailer(struct AVFormatContext *s)
     avio_closep(&oc->pb);
     avformat_free_context(oc);
     av_free(hls->basename);
+    append_entry(hls, hls->duration);
     hls_window(s, 1);
 
     free_entries(hls);
@@ -312,10 +321,10 @@ static int hls_write_trailer(struct AVFormatContext *s)
 #define OFFSET(x) offsetof(HLSContext, x)
 #define E AV_OPT_FLAG_ENCODING_PARAM
 static const AVOption options[] = {
-    { "start_number", "set first number in the sequence",        OFFSET(number),  AV_OPT_TYPE_INT,    {.i64 = 0},     0, INT_MAX, E},
-    { "hls_time",     "set segment length in seconds",           OFFSET(time),    AV_OPT_TYPE_FLOAT,  {.dbl = 2},     0, FLT_MAX, E},
-    { "hls_list_size","set maximum number of playlist entries",  OFFSET(size),    AV_OPT_TYPE_INT,    {.i64 = 5},     0, INT_MAX, E},
-    { "hls_wrap",     "set number after which the index wraps",  OFFSET(wrap),    AV_OPT_TYPE_INT,    {.i64 = 0},     0, INT_MAX, E},
+    {"start_number",  "set first number in the sequence",        OFFSET(sequence),AV_OPT_TYPE_INT64,  {.i64 = 0},     0, INT64_MAX, E},
+    {"hls_time",      "set segment length in seconds",           OFFSET(time),    AV_OPT_TYPE_FLOAT,  {.dbl = 2},     0, FLT_MAX, E},
+    {"hls_list_size", "set maximum number of playlist entries",  OFFSET(size),    AV_OPT_TYPE_INT,    {.i64 = 5},     0, INT_MAX, E},
+    {"hls_wrap",      "set number after which the index wraps",  OFFSET(wrap),    AV_OPT_TYPE_INT,    {.i64 = 0},     0, INT_MAX, E},
     { NULL },
 };
 

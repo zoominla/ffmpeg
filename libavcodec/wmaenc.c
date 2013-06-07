@@ -19,13 +19,15 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include "libavutil/attributes.h"
 #include "avcodec.h"
 #include "internal.h"
 #include "wma.h"
 #include "libavutil/avassert.h"
 
 
-static int encode_init(AVCodecContext * avctx){
+static av_cold int encode_init(AVCodecContext *avctx)
+{
     WMACodecContext *s = avctx->priv_data;
     int i, flags1, flags2, block_align;
     uint8_t *extradata;
@@ -84,11 +86,6 @@ static int encode_init(AVCodecContext * avctx){
     avctx->block_align = block_align;
 
     avctx->frame_size = avctx->delay = s->frame_len;
-
-#if FF_API_OLD_ENCODE_AUDIO
-    avctx->coded_frame = &s->frame;
-    avcodec_get_frame_defaults(avctx->coded_frame);
-#endif
 
     return 0;
 }
@@ -366,7 +363,7 @@ static int encode_superframe(AVCodecContext *avctx, AVPacket *avpkt,
         }
     }
 
-    if ((ret = ff_alloc_packet2(avctx, avpkt, 2 * MAX_CODED_SUPERFRAME_SIZE)))
+    if ((ret = ff_alloc_packet2(avctx, avpkt, 2 * MAX_CODED_SUPERFRAME_SIZE)) < 0)
         return ret;
 
     total_gain= 128;

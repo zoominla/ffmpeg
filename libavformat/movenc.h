@@ -94,6 +94,7 @@ typedef struct MOVIndex {
 #define MOV_TIMECODE_FLAG_ALLOWNEGATIVE 0x0004
     uint32_t    timecode_flags;
     int         language;
+    int         secondary;
     int         track_id;
     int         tag; ///< stsd fourcc
     AVCodecContext *enc;
@@ -167,6 +168,7 @@ typedef struct MOVMuxContext {
     AVIOContext *mdat_buf;
 
     int use_editlist;
+    int video_track_timescale;
 } MOVMuxContext;
 
 #define FF_MOV_FLAG_RTP_HINT 1

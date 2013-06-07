@@ -2,129 +2,86 @@ Entries are sorted chronologically from oldest to youngest within each release,
 releases are sorted from youngest to oldest.
 
 version <next>:
-- aac: check the maximum number of channels to avoid invalid writes
-- indeo3: fix off by one in MV validity check
-- id3v2: check for end of file while unescaping tags to avoid invalid
-  writes, reported by Google Security Team
-- afifo: fix request_samples on the last frame in certain cases
-- hls, segment: fix splitting for audio-only streams
-- wav: Always seek to an even offset, Bug #500, LP: #1174737
-- swscale: Use alpha from the right row in yuva2rgba_c, Bug #504
-- indeo3: use unaligned reads on reference blocks, Bug #503
-- oma: properly forward errors in oma_read_packet
-- af_asyncts: fix offset calculation
+- curves filter
+- reference-counting for AVFrame and AVPacket data
+- ffmpeg now fails when input options are used for output file
+  or vice versa
+- support for Monkey's Audio versions from 3.93
+- perms and aperms filters
+- audio filtering support in ffplay
+- 10% faster aac encoding on x86 and MIPS
+- sine audio filter source
+- WebP demuxing and decoding support
+- new ffmpeg options -filter_script and -filter_complex_script, which allow a
+  filtergraph description to be read from a file
+- OpenCL support
+- audio phaser filter
+- separatefields filter
+- libquvi demuxer
+- uniform options syntax across all filters
+- telecine filter
+- new interlace filter
+- smptehdbars source
+- inverse telecine filters (fieldmatch and decimate)
+- colorbalance filter
+- colorchannelmixer filter
+- The matroska demuxer can now output proper verbatim ASS packets. It will
+  become the default at the next libavformat major bump.
+- decent native animated GIF encoding
+- asetrate filter
+- interleave filter
+- timeline editing with filters
+- vidstabdetect and vidstabtransform filters for video stabilization using
+  the vid.stab library
+- astats filter
+- trim and atrim filters
+- ffmpeg -t and -ss (output-only) options are now sample-accurate when
+  transcoding audio
+- Matroska muxer can now put the index at the beginning of the file.
+- extractplanes filter
+- avectorscope filter
+- ADPCM DTK decoder
+- ADP demuxer
+- RSD demuxer
+- RedSpark demuxer
+- ADPCM IMA Radical decoder
+- zmq filters
+- DCT denoiser filter (dctdnoiz)
+- Wavelet denoiser filter ported from libmpcodecs as owdenoise (formerly "ow")
+- Apple Intermediate Codec decoder
+- Escape 130 video decoder
+- FTP protocol support
+- V4L2 output device
+- 3D LUT filter (lut3d)
+- SMPTE 302M audio encoder
+- support for slice multithreading in libavfilter
+- Hald CLUT support (generation and filtering)
+- VC-1 interlaced B-frame support
 
-Most of the following fixes resulted from test samples that the Google
-Security Team has kindly made available to us:
 
-- af_channelmap: sanity check input channel indices in all cases
-- avfiltergraph: check for sws opts being non-NULL before using them
-- bmv: check for len being valid in bmv_decode_frame()
-- configure: Enable hwaccels without external dependencies by default
-- dfa: check for invalid access in decode_wdlt()
-- id3v2: pad the APIC packets as required by lavc
-- indeo3: check motion vectors
-- indeo3: fix data size check
-- indeo3: switch parsing the header to bytestream2
-- lavf: make sure stream probe data gets freed
-- matroska: Update the available size after lace parsing
-- matroska: fix a corner case in ebml-lace parsing
-- matroska: pass the lace size to the matroska_parse_rm_audio
-- mp3dec: fallback to generic seeking when a TOC is not present
-- oggdec: fix faulty cleanup prototype
-- oma: Validate sample rates
-- qdm2: check that the FFT size is a power of 2
-- riff: check for eof if chunk size and code are 0 to prevent an infinite loop
-- rv10: check that extradata is large enough
-- svq1dec: check that the reference frame has the same dimensions as the current one
-- svq1dec: clip motion vectors to the frame size
-- xmv: check audio track parameters validity
-- xmv: do not leak memory in the error paths in xmv_read_header()
-- atrac3: avoid oversized shifting in decode_bytes()
-- eamad: allocate a dummy reference frame when the real one is missing
-- ffv1: fix calculating slice dimensions for version 2
-- flacdec: simplify bounds checking in flac_probe()
-- h264: check for luma and chroma bit dept being equal (CVE-2013-2277)
-- hqdn3d: Fix out of array read in LOWPASS
-- iff: validate CMAP palette size (CVE-2013-2495)
-- ivi_common: do not call MC for intra frames when dc_transform is unset
-- libmp3lame: use the correct remaining buffer size when flushing
-- lzo: fix overflow checking in copy_backptr()
-- mp3dec: Fix VBR bit rate parsing
-- png: use av_mallocz_array() for the zlib zalloc function
-- roqvideodec: fix a potential infinite loop in roqvideo_decode_frame()
-- shorten: fix various programming mistakes
-- vf_gradfun: fix uninitialized variable use
-- vf_hqdn3d: fix uninitialized variable use
-- vmdaudio: fix invalid reads when packet size is not a multiple of chunk size
-- wmadec: require block_align to be set
-- wmaprodec: require block_align to be set
-- wmaprodec: return an error, not 0, when the input is too small
-- xxan: fix invalid memory access in xan_decode_frame_type0()
-- h264: fix deadlocks with broken/fuzzed files
-- flvdec: make decoder more robust
-- vorbisdec: fix buffer overflow (CVE-2013-0894)
-- ac3dec: validate channel output mode against channel count
-- doc: minor improvements
-- loco: check that there is data left after decoding a plane.
-- mov: use the format context for logging.
-- lagarith: avoid infinite loop in lag_rac_refill() with corrupted files
-- flicvideo: avoid an infinite loop in byte run compression
-- av_memcpy_backptr: avoid an infinite loop for back = 0
-- mlpdec: do not try to allocate a zero-sized output buffer.
-- qtrle: add more checks against pixel_ptr being negative.
-- 4xm: check the return value of read_huffman_tables().
-- cavs: initialize various context tables, avoids crashes with corrupted files
-- x86/H.264: Don't use redzone in AVX h264_deblock on Win64
-- VQA video: check chunk sizes before reading chunks
-- RoQ video decoder: check dimensions validity
-- QDM2: check array index before use, fix out of array accesses
-- mpegvideo: Do REBASE_PICTURE with byte pointers
-- SVQ3: unbreak decoding
-- libopencore-amrwb: Make AMR-WB ifdeffery more precise
-- libopencore-amr: Conditionally compile decoder and encoder bits
-- arm: Fall back to runtime cpu feature detection via /proc/cpuinfo
-- xxan: properly handle odd heights
-- msrledec: check bounds before constructing a possibly invalid pointer (CVE-2496)
-- qtrle: fix the topmost line for 1bit
-- aasc: fix output for msrle compression
-- yop: check for input overreads
-- yop: check that extradata is large enough
-- fraps: fix off-by one bug for version 1
-- vf_delogo: fix copying the input frame
-- vf_delogo: fix an uninitialized read
-- dnxhdenc: fix invalid reads in dnxhd_mb_var_thread()
-- ATRAC3: use correct loop variable in add_tonal_components()
-- MLP: store the channel layout for each substream
-- MLP decoder: TrueHD: use Libav channel order
-- x86: ac3: Fix HAVE_MMXEXT condition to only refer to external assembly
-- arm: vp8: Fix the plain-armv6 version of vp8_luma_dc_wht
-- lavr: call mix_function_init() in ff_audio_mix_set_matrix()
-- rtpenc_chain: Use the original AVFormatContext for getting payload type
-- rtp: Make sure the output format pointer is set
-- rtp: Make sure priv_data is set before reading it
-- videodsp_armv5te: remove #if HAVE_ARMV5TE_EXTERNAL
-- get_bits: change the failure condition in init_get_bits
-- mpegvideo: fix loop condition in draw_line()
-- fate: update ref after rv30_loop_filter fix
-- RV30: fix masking in rv30_loop_filter()
-- libcdio: support recent cdio-paranoia
-- Theora: Skip zero-sized headers
-- H.264: add 3 pixels below for subpixel filter wait position
-- H.264: fix ff_generate_sliding_window_mmcos() prototype
-- H.264: don't clobber mmco opcode tables for non-first slice headers
-- libx264: use the library specific default rc_initial_buffer_occupancy
-- lavc: set the default rc_initial_buffer_occupancy
-- lavc: introduce the convenience function init_get_bits8
-- lavc: check for overflow in init_get_bits
-- configure: enable pic for shared libs on AArch64
-- zmbv: Reset the decoder on keyframe errors
-- VC1 decoder: prevent a crash due missing pred_flag parameter
-- matroska: Fix use after free
-- VP3: Fix double free in vp3_decode_end()
-- Fix a crash on windows platforms related to automatic stack alignment
-  in libavresample
-- Fix memleaks in the Ogg demuxer. Related to CVE-2012-2882
+version 1.2:
+
+- VDPAU hardware acceleration through normal hwaccel
+- SRTP support
+- Error diffusion dither in Swscale
+- Chained Ogg support
+- Theora Midstream reconfiguration support
+- EVRC decoder
+- audio fade filter
+- filtering audio with unknown channel layout
+- allpass, bass, bandpass, bandreject, biquad, equalizer, highpass, lowpass
+  and treble audio filter
+- improved showspectrum filter, with multichannel support and sox-like colors
+- histogram filter
+- tee muxer
+- il filter ported from libmpcodecs
+- support ID3v2 tags in ASF files
+- encrypted TTA stream decoding support
+- RF64 support in WAV muxer
+- noise filter ported from libmpcodecs
+- Subtitles character encoding conversion
+- blend filter
+- stereo3d filter ported from libmpcodecs
 
 
 version 1.1:

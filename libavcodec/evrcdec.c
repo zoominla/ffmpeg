@@ -66,7 +66,6 @@ typedef struct EVRCAFrame {
 } EVRCAFrame;
 
 typedef struct EVRCContext {
-    AVFrame          avframe;
     GetBitContext    gb;
     evrc_packet_rate bitrate;
     evrc_packet_rate last_valid_bitrate;
@@ -230,9 +229,6 @@ static av_cold int evrc_decode_init(AVCodecContext *avctx)
     int i, n, idx = 0;
     float denom = 2.0 / (2.0 * 8.0 + 1.0);
 
-    avcodec_get_frame_defaults(&e->avframe);
-    avctx->coded_frame = &e->avframe;
-
     avctx->channels       = 1;
     avctx->channel_layout = AV_CH_LAYOUT_MONO;
     avctx->sample_fmt     = AV_SAMPLE_FMT_FLT;
@@ -378,7 +374,7 @@ static void bl_intrp(EVRCContext *e, float *ex, float delay)
     int offset, i, coef_idx;
     int16_t t;
 
-    offset = lrintf(fabs(delay));
+    offset = lrintf(delay);
 
     t = (offset - delay + 0.5) * 8.0 + 0.5;
     if (t == 8) {
@@ -644,7 +640,7 @@ static void postfilter(EVRCContext *e, float *in, const float *coeff,
     /* Short term postfilter */
     synthesis_filter(temp, wcoef2, e->postfilter_iir, length, out);
 
-    memcpy(e->postfilter_residual,
+    memmove(e->postfilter_residual,
            e->postfilter_residual + length, ACB_SIZE * sizeof(float));
 }
 
@@ -718,7 +714,7 @@ static void frame_erasure(EVRCContext *e, float *samples)
                 e->pitch[ACB_SIZE + j] = e->energy_vector[i];
         }
 
-        memcpy(e->pitch, e->pitch + subframe_size, ACB_SIZE * sizeof(float));
+        memmove(e->pitch, e->pitch + subframe_size, ACB_SIZE * sizeof(float));
 
         if (e->bitrate != RATE_QUANT && e->avg_acb_gain < 0.4) {
             f = 0.1 * e->avg_fcb_gain;
@@ -742,16 +738,17 @@ static int evrc_decode_frame(AVCodecContext *avctx, void *data,
                              int *got_frame_ptr, AVPacket *avpkt)
 {
     const uint8_t *buf = avpkt->data;
+    AVFrame *frame     = data;
     EVRCContext *e     = avctx->priv_data;
     int buf_size       = avpkt->size;
     float ilspf[FILTER_ORDER], ilpc[FILTER_ORDER], idelay[NB_SUBFRAMES];
     float *samples;
     int   i, j, ret, error_flag = 0;
 
-    e->avframe.nb_samples = 160;
-    if ((ret = ff_get_buffer(avctx, &e->avframe)) < 0)
+    frame->nb_samples = 160;
+    if ((ret = ff_get_buffer(avctx, frame, 0)) < 0)
         return ret;
-    samples = (float *)e->avframe.data[0];
+    samples = (float *)frame->data[0];
 
     if ((e->bitrate = determine_bitrate(avctx, &buf_size, &buf)) == RATE_ERRS) {
         warn_insufficient_frame_quality(avctx, "bitrate cannot be determined.");
@@ -776,7 +773,8 @@ static int evrc_decode_frame(AVCodecContext *avctx, void *data,
         }
         if (i == sizeof(EVRCAFrame))
             goto erasure;
-    } else if (e->frame.lsp[0] == e->frame.lsp[1] == 0xf &&
+    } else if (e->frame.lsp[0] == 0xf &&
+               e->frame.lsp[1] == 0xf &&
                e->frame.energy_gain == 0xff) {
         goto erasure;
     }
@@ -816,7 +814,7 @@ static int evrc_decode_frame(AVCodecContext *avctx, void *data,
 
                 interpolate_delay(idelay, delay, e->prev_pitch_delay, i);
                 acb_excitation(e, e->pitch + ACB_SIZE, e->avg_acb_gain, idelay, subframe_size);
-                memcpy(e->pitch, e->pitch + subframe_size, ACB_SIZE * sizeof(float));
+                memmove(e->pitch, e->pitch + subframe_size, ACB_SIZE * sizeof(float));
             }
         }
 
@@ -874,7 +872,7 @@ static int evrc_decode_frame(AVCodecContext *avctx, void *data,
                 e->pitch[ACB_SIZE + j] = e->energy_vector[i];
         }
 
-        memcpy(e->pitch, e->pitch + subframe_size, ACB_SIZE * sizeof(float));
+        memmove(e->pitch, e->pitch + subframe_size, ACB_SIZE * sizeof(float));
 
         synthesis_filter(e->pitch + ACB_SIZE, ilpc,
                          e->synthesis, subframe_size, tmp);
@@ -898,12 +896,11 @@ erasure:
     if (e->bitrate != RATE_QUANT)
         e->prev_pitch_delay = e->pitch_delay;
 
-    samples = (float *)e->avframe.data[0];
+    samples = (float *)frame->data[0];
     for (i = 0; i < 160; i++)
         samples[i] /= 32768;
 
     *got_frame_ptr   = 1;
-    *(AVFrame *)data = e->avframe;
 
     return avpkt->size;
 }

@@ -153,7 +153,7 @@ static int xmv_read_header(AVFormatContext *s)
 
     file_version = avio_rl32(pb);
     if ((file_version != 4) && (file_version != 2))
-        av_log_ask_for_sample(s, "Found uncommon version %d\n", file_version);
+        avpriv_request_sample(s, "Uncommon version %d", file_version);
 
 
     /* Video track */
@@ -195,11 +195,6 @@ static int xmv_read_header(AVFormatContext *s)
         packet->sample_rate     = avio_rl32(pb);
         packet->bits_per_sample = avio_rl16(pb);
         packet->flags           = avio_rl16(pb);
-
-        if (!packet->channels) {
-            av_log(s, AV_LOG_ERROR, "0 channels\n");
-            return AVERROR(EINVAL);
-        }
 
         packet->bit_rate      = packet->bits_per_sample *
                                 packet->sample_rate *

@@ -25,6 +25,7 @@
  * FF Video Codec 1 (a lossless codec) encoder
  */
 
+#include "libavutil/attributes.h"
 #include "libavutil/avassert.h"
 #include "libavutil/crc.h"
 #include "libavutil/opt.h"
@@ -34,7 +35,6 @@
 #include "avcodec.h"
 #include "internal.h"
 #include "put_bits.h"
-#include "dsputil.h"
 #include "rangecoder.h"
 #include "golomb.h"
 #include "mathops.h"
@@ -535,7 +535,7 @@ static int write_extradata(FFV1Context *f)
     put_symbol(c, state, f->version, 0);
     if (f->version > 2) {
         if (f->version == 3)
-            f->minor_version = 2;
+            f->minor_version = 3;
         put_symbol(c, state, f->minor_version, 0);
     }
 
@@ -576,6 +576,7 @@ static int write_extradata(FFV1Context *f)
 
     if (f->version > 2) {
         put_symbol(c, state, f->ec, 0);
+        put_symbol(c, state, f->intra = (f->avctx->gop_size < 2), 0);
     }
 
     f->avctx->extradata_size = ff_rac_terminate(c);
@@ -640,14 +641,15 @@ static av_cold int encode_init(AVCodecContext *avctx)
     const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(avctx->pix_fmt);
     int i, j, k, m, ret;
 
-    ffv1_common_init(avctx);
+    if ((ret = ffv1_common_init(avctx)) < 0)
+        return ret;
 
     s->version = 0;
 
     if ((avctx->flags & (CODEC_FLAG_PASS1|CODEC_FLAG_PASS2)) || avctx->slices>1)
         s->version = FFMAX(s->version, 2);
 
-    if (avctx->level == 3) {
+    if (avctx->level == 3 || (s->version==2 && avctx->strict_std_compliance > FF_COMPLIANCE_EXPERIMENTAL)) {
         s->version = 3;
     }
 
@@ -793,7 +795,6 @@ static av_cold int encode_init(AVCodecContext *avctx)
     if ((ret = ffv1_allocate_initial_states(s)) < 0)
         return ret;
 
-    avctx->coded_frame = &s->picture;
     if (!s->transparency)
         s->plane_count = 2;
     avcodec_get_chroma_sub_sample(avctx->pix_fmt, &s->chroma_h_shift, &s->chroma_v_shift);
@@ -856,18 +857,29 @@ static av_cold int encode_init(AVCodecContext *avctx)
         find_best_state(best_state, s->state_transition);
 
         for (i = 0; i < s->quant_table_count; i++) {
-            for (j = 0; j < s->context_count[i]; j++)
-                for (k = 0; k < 32; k++) {
+            for (k = 0; k < 32; k++) {
+                double a=0, b=0;
+                int jp = 0;
+                for (j = 0; j < s->context_count[i]; j++) {
                     double p = 128;
-                    if (s->rc_stat2[i][j][k][0] + s->rc_stat2[i][j][k][1]) {
-                        p = 256.0 * s->rc_stat2[i][j][k][1] /
-                            (s->rc_stat2[i][j][k][0] + s->rc_stat2[i][j][k][1]);
+                    if (s->rc_stat2[i][j][k][0] + s->rc_stat2[i][j][k][1] > 200 && j || a+b > 200) {
+                        if (a+b)
+                            p = 256.0 * b / (a + b);
+                        s->initial_states[i][jp][k] =
+                            best_state[av_clip(round(p), 1, 255)][av_clip((a + b) / gob_count, 0, 255)];
+                        for(jp++; jp<j; jp++)
+                            s->initial_states[i][jp][k] = s->initial_states[i][jp-1][k];
+                        a=b=0;
+                    }
+                    a += s->rc_stat2[i][j][k][0];
+                    b += s->rc_stat2[i][j][k][1];
+                    if (a+b) {
+                        p = 256.0 * b / (a + b);
                     }
                     s->initial_states[i][j][k] =
-                        best_state[av_clip(round(p), 1, 255)][av_clip((s->rc_stat2[i][j][k][0] +
-                                                                       s->rc_stat2[i][j][k][1]) /
-                                                                      gob_count, 0, 255)];
+                        best_state[av_clip(round(p), 1, 255)][av_clip((a + b) / gob_count, 0, 255)];
                 }
+            }
         }
     }
 
@@ -927,12 +939,12 @@ static void encode_slice_header(FFV1Context *f, FFV1Context *fs)
         put_symbol(c, state, f->plane[j].quant_table_index, 0);
         av_assert0(f->plane[j].quant_table_index == f->avctx->context_model);
     }
-    if (!f->picture.interlaced_frame)
+    if (!f->picture.f->interlaced_frame)
         put_symbol(c, state, 3, 0);
     else
-        put_symbol(c, state, 1 + !f->picture.top_field_first, 0);
-    put_symbol(c, state, f->picture.sample_aspect_ratio.num, 0);
-    put_symbol(c, state, f->picture.sample_aspect_ratio.den, 0);
+        put_symbol(c, state, 1 + !f->picture.f->top_field_first, 0);
+    put_symbol(c, state, f->picture.f->sample_aspect_ratio.num, 0);
+    put_symbol(c, state, f->picture.f->sample_aspect_ratio.den, 0);
 }
 
 static int encode_slice(AVCodecContext *c, void *arg)
@@ -943,7 +955,7 @@ static int encode_slice(AVCodecContext *c, void *arg)
     int height       = fs->slice_height;
     int x            = fs->slice_x;
     int y            = fs->slice_y;
-    AVFrame *const p = &f->picture;
+    AVFrame *const p = f->picture.f;
     const int ps     = av_pix_fmt_desc_get(c->pix_fmt)->comp[0].step_minus1 + 1;
 
     if (p->key_frame)
@@ -961,8 +973,8 @@ static int encode_slice(AVCodecContext *c, void *arg)
     }
 
     if (f->colorspace == 0) {
-        const int chroma_width  = -((-width) >> f->chroma_h_shift);
-        const int chroma_height = -((-height) >> f->chroma_v_shift);
+        const int chroma_width  = FF_CEIL_RSHIFT(width,  f->chroma_h_shift);
+        const int chroma_height = FF_CEIL_RSHIFT(height, f->chroma_v_shift);
         const int cx            = x >> f->chroma_h_shift;
         const int cy            = y >> f->chroma_v_shift;
 
@@ -990,7 +1002,7 @@ static int encode_frame(AVCodecContext *avctx, AVPacket *pkt,
 {
     FFV1Context *f      = avctx->priv_data;
     RangeCoder *const c = &f->slice_context[0]->c;
-    AVFrame *const p    = &f->picture;
+    AVFrame *const p    = f->picture.f;
     int used_count      = 0;
     uint8_t keystate    = 128;
     uint8_t *buf_p;
@@ -1003,7 +1015,8 @@ static int encode_frame(AVCodecContext *avctx, AVPacket *pkt,
     ff_init_range_encoder(c, pkt->data, pkt->size);
     ff_build_rac_states(c, 0.05 * (1LL << 32), 256 - 8);
 
-    *p           = *pict;
+    av_frame_unref(p);
+    av_frame_ref(p, pict);
     p->pict_type = AV_PICTURE_TYPE_I;
 
     if (avctx->gop_size == 0 || f->picture_number % avctx->gop_size == 0) {

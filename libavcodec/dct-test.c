@@ -39,7 +39,7 @@
 #include "libavutil/lfg.h"
 #include "libavutil/time.h"
 
-#include "dsputil.h"
+#include "dct.h"
 #include "simple_idct.h"
 #include "aandcttab.h"
 #include "faandct.h"
@@ -48,9 +48,6 @@
 #include "dctref.h"
 
 #undef printf
-
-void ff_mmx_idct(int16_t *data);
-void ff_mmxext_idct(int16_t *data);
 
 // BFIN
 void ff_bfin_idct(int16_t *block);
@@ -126,10 +123,6 @@ static const struct algo idct_tab[] = {
     { "SIMPLE-C",       ff_simple_idct_8,      NO_PERM  },
 
 #if HAVE_MMX_INLINE
-#if CONFIG_GPL
-    { "LIBMPEG2-MMX",   ff_mmx_idct,           MMX_PERM,  AV_CPU_FLAG_MMX,  1 },
-    { "LIBMPEG2-MMX2",  ff_mmxext_idct,        MMX_PERM,  AV_CPU_FLAG_MMX2, 1 },
-#endif
     { "SIMPLE-MMX",     ff_simple_idct_mmx,  MMX_SIMPLE_PERM, AV_CPU_FLAG_MMX },
     { "XVID-MMX",       ff_idct_xvid_mmx,      NO_PERM,   AV_CPU_FLAG_MMX,  1 },
     { "XVID-MMXEXT",    ff_idct_xvid_mmxext,   NO_PERM,   AV_CPU_FLAG_MMXEXT, 1 },

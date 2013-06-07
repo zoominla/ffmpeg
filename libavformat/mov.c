@@ -3,6 +3,9 @@
  * Copyright (c) 2001 Fabrice Bellard
  * Copyright (c) 2009 Baptiste Coudurier <baptiste dot coudurier at gmail dot com>
  *
+ * first version by Francois Revol <revol@free.fr>
+ * seek function by Gael Chardon <gael.dev@4now.net>
+ *
  * This file is part of FFmpeg.
  *
  * FFmpeg is free software; you can redistribute it and/or
@@ -22,7 +25,6 @@
 
 #include <limits.h>
 
-//#define DEBUG
 //#define MOV_EXPORT_ALL_METADATA
 
 #include "libavutil/attributes.h"
@@ -47,11 +49,6 @@
 #if CONFIG_ZLIB
 #include <zlib.h>
 #endif
-
-/*
- * First version by Francois Revol revol@free.fr
- * Seek function by Gael Chardon gael.dev@4now.net
- */
 
 #include "qtpalette.h"
 
@@ -835,7 +832,7 @@ static int mov_read_mdhd(MOVContext *c, AVIOContext *pb, MOVAtom atom)
 
     version = avio_r8(pb);
     if (version > 1) {
-        av_log_ask_for_sample(c->fc, "unsupported version %d\n", version);
+        avpriv_request_sample(c->fc, "Version %d", version);
         return AVERROR_PATCHWELCOME;
     }
     avio_rb24(pb); /* flags */
@@ -1033,7 +1030,9 @@ static int mov_read_wave(MOVContext *c, AVIOContext *pb, MOVAtom atom)
     if ((uint64_t)atom.size > (1<<30))
         return AVERROR_INVALIDDATA;
 
-    if (st->codec->codec_id == AV_CODEC_ID_QDM2 || st->codec->codec_id == AV_CODEC_ID_QDMC) {
+    if (st->codec->codec_id == AV_CODEC_ID_QDM2 ||
+        st->codec->codec_id == AV_CODEC_ID_QDMC ||
+        st->codec->codec_id == AV_CODEC_ID_SPEEX) {
         // pass all frma atom to codec, needed at least for QDMC and QDM2
         av_free(st->codec->extradata);
         st->codec->extradata_size = 0;
@@ -1550,6 +1549,8 @@ int ff_mov_read_stsd_entries(MOVContext *c, AVIOContext *pb, int entries)
     case AV_CODEC_ID_ADPCM_MS:
     case AV_CODEC_ID_ADPCM_IMA_WAV:
     case AV_CODEC_ID_ILBC:
+    case AV_CODEC_ID_MACE3:
+    case AV_CODEC_ID_MACE6:
         st->codec->block_align = sc->bytes_per_frame;
         break;
     case AV_CODEC_ID_ALAC:
@@ -1720,7 +1721,7 @@ static int mov_read_stsz(MOVContext *c, AVIOContext *pb, MOVAtom atom)
         sample_size = avio_rb32(pb);
         if (!sc->sample_size) /* do not overwrite value computed in stsd */
             sc->sample_size = sample_size;
-        sc->alt_sample_size = sample_size;
+        sc->stsz_sample_size = sample_size;
         field_size = 32;
     } else {
         sample_size = 0;
@@ -2017,7 +2018,7 @@ static void mov_build_index(MOVContext *mov, AVStream *st)
                 }
                 if (keyframe)
                     distance = 0;
-                sample_size = sc->alt_sample_size > 0 ? sc->alt_sample_size : sc->sample_sizes[current_sample];
+                sample_size = sc->stsz_sample_size > 0 ? sc->stsz_sample_size : sc->sample_sizes[current_sample];
                 if (sc->pseudo_stream_id == -1 ||
                    sc->stsc_data[stsc_index].id - 1 == sc->pseudo_stream_id) {
                     AVIndexEntry *e = &st->index_entries[st->nb_index_entries++];
@@ -2698,15 +2699,6 @@ static int mov_read_elst(MOVContext *c, AVIOContext *pb, MOVAtom atom)
     return 0;
 }
 
-static int mov_read_chan2(MOVContext *c, AVIOContext *pb, MOVAtom atom)
-{
-    if (atom.size < 16)
-        return 0;
-    avio_skip(pb, 4);
-    ff_mov_read_chan(c->fc, pb, c->fc->streams[0],  atom.size - 4);
-    return 0;
-}
-
 static int mov_read_tmcd(MOVContext *c, AVIOContext *pb, MOVAtom atom)
 {
     MOVStreamContext *sc;
@@ -2896,7 +2888,7 @@ static int mov_probe(AVProbeData *p)
                 (AV_RB32(p->buf+offset) != 1 ||
                  offset + 12 > (unsigned int)p->buf_size ||
                  AV_RB64(p->buf+offset + 8) == 0)) {
-                score = FFMAX(score, AVPROBE_SCORE_MAX - 50);
+                score = FFMAX(score, AVPROBE_SCORE_EXTENSION);
             } else {
                 score = AVPROBE_SCORE_MAX;
             }
@@ -2916,7 +2908,7 @@ static int mov_probe(AVProbeData *p)
         case MKTAG('u','u','i','d'):
         case MKTAG('p','r','f','l'):
             /* if we only find those cause probedata is too small at least rate them */
-            score  = FFMAX(score, AVPROBE_SCORE_MAX - 50);
+            score  = FFMAX(score, AVPROBE_SCORE_EXTENSION);
             offset = FFMAX(4, AV_RB32(p->buf+offset)) + offset;
             break;
         default:
@@ -3182,7 +3174,7 @@ static int mov_read_header(AVFormatContext *s)
                 if (s->streams[j]->id == sc->timecode_track)
                     tmcd_st_id = j;
 
-            if (tmcd_st_id < 0)
+            if (tmcd_st_id < 0 || tmcd_st_id == i)
                 continue;
             tcr = av_dict_get(s->streams[tmcd_st_id]->metadata, "timecode", NULL, 0);
             if (tcr)

@@ -24,9 +24,9 @@
 #include "libavutil/x86/asm.h"
 #include "libavutil/x86/cpu.h"
 #include "libavcodec/avcodec.h"
-#include "libavcodec/dsputil.h"
+#include "libavcodec/dct.h"
 #include "libavcodec/mpegvideo.h"
-#include "dsputil_mmx.h"
+#include "dsputil_x86.h"
 
 extern uint16_t ff_inv_zigzag_direct16[64];
 
@@ -83,11 +83,11 @@ extern uint16_t ff_inv_zigzag_direct16[64];
 
 av_cold void ff_dct_encode_init_x86(MpegEncContext *s)
 {
-    int mm_flags = av_get_cpu_flags();
     const int dct_algo = s->avctx->dct_algo;
 
     if (dct_algo == FF_DCT_AUTO || dct_algo == FF_DCT_MMX) {
 #if HAVE_MMX_INLINE
+        int mm_flags = av_get_cpu_flags();
         if (INLINE_MMX(mm_flags))
             s->dct_quantize = dct_quantize_MMX;
 #endif

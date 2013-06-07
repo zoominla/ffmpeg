@@ -87,10 +87,10 @@ typedef struct {
 typedef struct {
     int64_t timeline_start_pos;
     WtvFile file[WTV_FILES];
-    int64_t serial;         /** chunk serial number */
-    int64_t last_chunk_pos; /** last chunk position */
-    int64_t last_timestamp_pos; /** last timestamp chunk position */
-    int64_t first_index_pos;    /** first index_chunk position */
+    int64_t serial;         /**< chunk serial number */
+    int64_t last_chunk_pos; /**< last chunk position */
+    int64_t last_timestamp_pos; /**< last timestamp chunk position */
+    int64_t first_index_pos;    /**< first index_chunk position */
 
     WtvChunkEntry index[MAX_NB_INDEX];
     int nb_index;
@@ -457,7 +457,6 @@ static int write_packet(AVFormatContext *s, AVPacket *pkt)
     write_pad(pb, WTV_PAD8(pkt->size) - pkt->size);
 
     wctx->serial++;
-    avio_flush(pb);
     return 0;
 }
 

@@ -45,7 +45,6 @@
 #include "mips/amrwbdec_mips.h"
 
 typedef struct {
-    AVFrame                              avframe; ///< AVFrame for decoded samples
     AMRWBFrame                             frame; ///< AMRWB parameters decoded from bitstream
     enum Mode                        fr_cur_mode; ///< mode index of current frame
     uint8_t                           fr_quality; ///< frame quality index (FQI)
@@ -100,7 +99,7 @@ static av_cold int amrwb_decode_init(AVCodecContext *avctx)
     int i;
 
     if (avctx->channels > 1) {
-        av_log_missing_feature(avctx, "multi-channel AMR", 0);
+        avpriv_report_missing_feature(avctx, "multi-channel AMR");
         return AVERROR_PATCHWELCOME;
     }
 
@@ -120,9 +119,6 @@ static av_cold int amrwb_decode_init(AVCodecContext *avctx)
 
     for (i = 0; i < 4; i++)
         ctx->prediction_error[i] = MIN_ENERGY;
-
-    avcodec_get_frame_defaults(&ctx->avframe);
-    avctx->coded_frame = &ctx->avframe;
 
     ff_acelp_filter_init(&ctx->acelpf_ctx);
     ff_acelp_vectors_init(&ctx->acelpv_ctx);
@@ -1097,6 +1093,7 @@ static int amrwb_decode_frame(AVCodecContext *avctx, void *data,
                               int *got_frame_ptr, AVPacket *avpkt)
 {
     AMRWBContext *ctx  = avctx->priv_data;
+    AVFrame *frame     = data;
     AMRWBFrame   *cf   = &ctx->frame;
     const uint8_t *buf = avpkt->data;
     int buf_size       = avpkt->size;
@@ -1114,12 +1111,10 @@ static int amrwb_decode_frame(AVCodecContext *avctx, void *data,
     int sub, i, ret;
 
     /* get output buffer */
-    ctx->avframe.nb_samples = 4 * AMRWB_SFR_SIZE_16k;
-    if ((ret = ff_get_buffer(avctx, &ctx->avframe)) < 0) {
-        av_log(avctx, AV_LOG_ERROR, "get_buffer() failed\n");
+    frame->nb_samples = 4 * AMRWB_SFR_SIZE_16k;
+    if ((ret = ff_get_buffer(avctx, frame, 0)) < 0)
         return ret;
-    }
-    buf_out = (float *)ctx->avframe.data[0];
+    buf_out = (float *)frame->data[0];
 
     header_size      = decode_mime_header(ctx, buf);
     if (ctx->fr_cur_mode > MODE_SID) {
@@ -1140,7 +1135,7 @@ static int amrwb_decode_frame(AVCodecContext *avctx, void *data,
         av_log(avctx, AV_LOG_ERROR, "Encountered a bad or corrupted frame\n");
 
     if (ctx->fr_cur_mode == MODE_SID) { /* Comfort noise frame */
-        av_log_missing_feature(avctx, "SID mode", 1);
+        avpriv_request_sample(avctx, "SID mode");
         return AVERROR_PATCHWELCOME;
     }
 
@@ -1265,8 +1260,7 @@ static int amrwb_decode_frame(AVCodecContext *avctx, void *data,
     memcpy(ctx->isp_sub4_past, ctx->isp[3], LP_ORDER * sizeof(ctx->isp[3][0]));
     memcpy(ctx->isf_past_final, ctx->isf_cur, LP_ORDER * sizeof(float));
 
-    *got_frame_ptr   = 1;
-    *(AVFrame *)data = ctx->avframe;
+    *got_frame_ptr = 1;
 
     return expected_fr_size;
 }

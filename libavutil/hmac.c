@@ -20,6 +20,7 @@
 
 #include <string.h>
 
+#include "attributes.h"
 #include "hmac.h"
 #include "md5.h"
 #include "sha.h"
@@ -38,7 +39,7 @@ struct AVHMAC {
     int keylen;
 };
 
-static void sha1_init(void *ctx)
+static av_cold void sha1_init(void *ctx)
 {
     av_sha_init(ctx, 160);
 }
@@ -52,17 +53,17 @@ AVHMAC *av_hmac_alloc(enum AVHMACType type)
     case AV_HMAC_MD5:
         c->blocklen = 64;
         c->hashlen  = 16;
-        c->init     = av_md5_init;
-        c->update   = av_md5_update;
-        c->final    = av_md5_final;
+        c->init     = (void*)av_md5_init;
+        c->update   = (void*)av_md5_update;
+        c->final    = (void*)av_md5_final;
         c->hash     = av_md5_alloc();
         break;
     case AV_HMAC_SHA1:
         c->blocklen = 64;
         c->hashlen  = 20;
         c->init     = sha1_init;
-        c->update   = av_sha_update;
-        c->final    = av_sha_final;
+        c->update   = (void*)av_sha_update;
+        c->final    = (void*)av_sha_final;
         c->hash     = av_sha_alloc();
         break;
     default:

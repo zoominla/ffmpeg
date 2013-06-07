@@ -37,6 +37,7 @@
 
 #include "avcodec.h"
 #include "bytestream.h"
+#include "internal.h"
 
 typedef struct QtrleContext {
     AVCodecContext *avctx;
@@ -46,12 +47,12 @@ typedef struct QtrleContext {
     uint32_t pal[256];
 } QtrleContext;
 
-#define CHECK_PIXEL_PTR(n) \
-  if ((pixel_ptr + n > pixel_limit) || (pixel_ptr + n < 0)) { \
-    av_log (s->avctx, AV_LOG_INFO, "Problem: pixel_ptr = %d, pixel_limit = %d\n", \
-      pixel_ptr + n, pixel_limit); \
-    return; \
-  } \
+#define CHECK_PIXEL_PTR(n)                                                            \
+    if ((pixel_ptr + n > pixel_limit) || (pixel_ptr + n < 0)) {                       \
+        av_log (s->avctx, AV_LOG_ERROR, "Problem: pixel_ptr = %d, pixel_limit = %d\n",\
+                pixel_ptr + n, pixel_limit);                                          \
+        return;                                                                       \
+    }                                                                                 \
 
 static void qtrle_decode_1bpp(QtrleContext *s, int row_ptr, int lines_to_change)
 {
@@ -396,7 +397,6 @@ static av_cold int qtrle_decode_init(AVCodecContext *avctx)
     }
 
     avcodec_get_frame_defaults(&s->frame);
-    s->frame.data[0] = NULL;
 
     return 0;
 }
@@ -412,13 +412,8 @@ static int qtrle_decode_frame(AVCodecContext *avctx,
     int ret;
 
     bytestream2_init(&s->g, avpkt->data, avpkt->size);
-    s->frame.reference = 3;
-    s->frame.buffer_hints = FF_BUFFER_HINTS_VALID | FF_BUFFER_HINTS_PRESERVE |
-                            FF_BUFFER_HINTS_REUSABLE | FF_BUFFER_HINTS_READABLE;
-    if ((ret = avctx->reget_buffer(avctx, &s->frame)) < 0) {
-        av_log (s->avctx, AV_LOG_ERROR, "reget_buffer() failed\n");
+    if ((ret = ff_reget_buffer(avctx, &s->frame)) < 0)
         return ret;
-    }
 
     /* check if this frame is even supposed to change */
     if (avpkt->size < 8)
@@ -501,8 +496,9 @@ static int qtrle_decode_frame(AVCodecContext *avctx,
     }
 
 done:
+    if ((ret = av_frame_ref(data, &s->frame)) < 0)
+        return ret;
     *got_frame      = 1;
-    *(AVFrame*)data = s->frame;
 
     /* always report that the buffer was completely consumed */
     return avpkt->size;
@@ -512,8 +508,7 @@ static av_cold int qtrle_decode_end(AVCodecContext *avctx)
 {
     QtrleContext *s = avctx->priv_data;
 
-    if (s->frame.data[0])
-        avctx->release_buffer(avctx, &s->frame);
+    av_frame_unref(&s->frame);
 
     return 0;
 }

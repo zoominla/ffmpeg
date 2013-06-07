@@ -29,9 +29,9 @@
 #if HAVE_PTHREADS
 #include <pthread.h>
 #elif HAVE_OS2THREADS
-#include "libavcodec/os2threads.h"
+#include "compat/os2threads.h"
 #else
-#include "libavcodec/w32pthreads.h"
+#include "compat/w32pthreads.h"
 #endif
 #endif
 
