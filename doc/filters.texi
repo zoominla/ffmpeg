@@ -4855,6 +4855,50 @@ lutyuv=y='bitand(val, 128+64+32)'
 @end example
 @end itemize
 
+@section mcdeint
+
+Apply motion-compensation deinterlacing.
+
+It needs one field per frame as input and must thus be used together
+with yadif=1/3 or equivalent.
+
+This filter accepts the following options:
+@table @option
+@item mode
+Set the deinterlacing mode.
+
+It accepts one of the following values:
+@table @samp
+@item fast
+@item medium
+@item slow
+use iterative motion estimation
+@item extra_slow
+like @samp{slow}, but use multiple reference frames.
+@end table
+Default value is @samp{fast}.
+
+@item parity
+Set the picture field parity assumed for the input video. It must be
+one of the following values:
+
+@table @samp
+@item 0, tff
+assume top field first
+@item 1, bff
+assume bottom field first
+@end table
+
+Default value is @samp{bff}.
+
+@item qp
+Set per-block quantization parameter (QP) used by the internal
+encoder.
+
+Higher values should result in a smoother motion vector field but less
+optimal individual vectors. Default value is 1.
+@end table
+
 @section mp
 
 Apply an MPlayer filter to the input video.
@@ -4882,13 +4926,11 @@ The list of the currently supported filters follows:
 @item fil
 @item fspp
 @item ilpack
-@item mcdeint
 @item perspective
 @item phase
 @item pp7
 @item pullup
 @item qp
-@item sab
 @item softpulldown
 @item spp
 @item uspp
@@ -5728,6 +5770,42 @@ reduced. Marking too many pixels as part of the logo does not hurt as
 much, but it will increase the amount of blurring needed to cover over
 the image and will destroy more information than necessary, and extra
 pixels will slow things down on a large logo.
+
+@section sab
+
+Apply Shape Adaptive Blur.
+
+The filter accepts the following options:
+
+@table @option
+@item luma_radius, lr
+Set luma blur filter strength, must be a value in range 0.1-4.0, default
+value is 1.0. A greater value will result in a more blurred image, and
+in slower processing.
+
+@item luma_pre_filter_radius, lpfr
+Set luma pre-filter radius, must be a value in the 0.1-2.0 range, default
+value is 1.0.
+
+@item luma_strength, ls
+Set luma maximum difference between pixels to still be considered, must
+be a value in the 0.1-100.0 range, default value is 1.0.
+
+@item chroma_radius, cr
+Set chroma blur filter strength, must be a value in range 0.1-4.0. A
+greater value will result in a more blurred image, and in slower
+processing.
+
+@item chroma_pre_filter_radius, cpfr
+Set chroma pre-filter radius, must be a value in the 0.1-2.0 range.
+
+@item chroma_strength, cs
+Set chroma maximum difference between pixels to still be considered,
+must be a value in the 0.1-100.0 range.
+@end table
+
+Each chroma option value, if not explicitly specified, is set to the
+corresponding luma option value.
 
 @section scale
 
@@ -6949,6 +7027,116 @@ For example, to vertically flip a video with @command{ffmpeg}:
 @example
 ffmpeg -i in.avi -vf "vflip" out.avi
 @end example
+
+@section vignette
+
+Make or reverse a natural vignetting effect.
+
+The filter accepts the following options:
+
+@table @option
+@item angle, a
+Set lens angle expression as a number of radians.
+
+The value is clipped in the @code{[0,PI/2]} range.
+
+Default value: @code{"PI/5"}
+
+@item x0
+@item y0
+Set center coordinates expressions. Respectively @code{"w/2"} and @code{"h/2"}
+by default.
+
+@item mode
+Set forward/backward mode.
+
+Available modes are:
+@table @samp
+@item forward
+The larger the distance from the central point, the darker the image becomes.
+
+@item backward
+The larger the distance from the central point, the brighter the image becomes.
+This can be used to reverse a vignette effect, though there is no automatic
+detection to extract the lens @option{angle} and other settings (yet). It can
+also be used to create a burning effect.
+@end table
+
+Default value is @samp{forward}.
+
+@item eval
+Set evaluation mode for the expressions (@option{angle}, @option{x0}, @option{y0}).
+
+It accepts the following values:
+@table @samp
+@item init
+Evaluate expressions only once during the filter initialization.
+
+@item frame
+Evaluate expressions for each incoming frame. This is way slower than the
+@samp{init} mode since it requires all the scalers to be re-computed, but it
+allows advanced dynamic expressions.
+@end table
+
+Default value is @samp{init}.
+
+@item dither
+Set dithering to reduce the circular banding effects. Default is @code{1}
+(enabled).
+
+@item aspect
+Set vignette aspect. This setting allows to adjust the shape of the vignette.
+Setting this value to the SAR of the input will make a rectangular vignetting
+following the dimensions of the video.
+
+Default is @code{1/1}.
+@end table
+
+@subsection Expressions
+
+The @option{alpha}, @option{x0} and @option{y0} expressions can contain the
+following parameters.
+
+@table @option
+@item w
+@item h
+input width and height
+
+@item n
+the number of input frame, starting from 0
+
+@item pts
+the PTS (Presentation TimeStamp) time of the filtered video frame, expressed in
+@var{TB} units, NAN if undefined
+
+@item r
+frame rate of the input video, NAN if the input frame rate is unknown
+
+@item t
+the PTS (Presentation TimeStamp) of the filtered video frame,
+expressed in seconds, NAN if undefined
+
+@item tb
+time base of the input video
+@end table
+
+
+@subsection Examples
+
+@itemize
+@item
+Apply simple strong vignetting effect:
+@example
+vignette=PI/4
+@end example
+
+@item
+Make a flickering vignetting:
+@example
+vignette='PI/4+random(1)*PI/50':eval=frame
+@end example
+
+@end itemize
 
 @anchor{yadif}
 @section yadif

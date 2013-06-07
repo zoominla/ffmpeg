@@ -128,8 +128,8 @@ typedef struct Jpeg2000TgtNode {
 } Jpeg2000TgtNode;
 
 typedef struct Jpeg2000CodingStyle {
-    uint8_t nreslevels;       // number of resolution levels
-    uint8_t nreslevels2decode; // number of resolution levels to decode
+    int nreslevels;           // number of resolution levels
+    int nreslevels2decode;    // number of resolution levels to decode
     uint8_t log2_cblk_width,
             log2_cblk_height; // exponent of codeblock size
     uint8_t transform;        // DWT type
@@ -192,13 +192,11 @@ typedef struct Jpeg2000ResLevel {
     Jpeg2000Band *band;
 } Jpeg2000ResLevel; // resolution level
 
-/* TODO: data can be float of integer depending of reversible/irreversible
- * transformation.
- */
 typedef struct Jpeg2000Component {
     Jpeg2000ResLevel *reslevel;
     DWTContext dwt;
-    float *data;
+    float *f_data;
+    int *i_data;
     uint16_t coord[2][2];   // border coordinates {{x0, x1}, {y0, y1}} -- can be reduced with lowres option
     uint16_t coord_o[2][2]; // border coordinates {{x0, x1}, {y0, y1}} -- original values from jpeg2000 headers
 } Jpeg2000Component;
@@ -257,6 +255,8 @@ int ff_jpeg2000_init_component(Jpeg2000Component *comp,
                                Jpeg2000QuantStyle *qntsty,
                                int cbps, int dx, int dy,
                                AVCodecContext *ctx);
+
+void ff_jpeg2000_reinit(Jpeg2000Component *comp, Jpeg2000CodingStyle *codsty);
 
 void ff_jpeg2000_cleanup(Jpeg2000Component *comp, Jpeg2000CodingStyle *codsty);
 

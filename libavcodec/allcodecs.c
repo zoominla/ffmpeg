@@ -154,6 +154,7 @@ void avcodec_register_all(void)
     REGISTER_DECODER(FOURXM,            fourxm);
     REGISTER_DECODER(FRAPS,             fraps);
     REGISTER_DECODER(FRWU,              frwu);
+    REGISTER_DECODER(G2M,               g2m);
     REGISTER_ENCDEC (GIF,               gif);
     REGISTER_ENCDEC (H261,              h261);
     REGISTER_ENCDEC (H263,              h263);
@@ -172,8 +173,7 @@ void avcodec_register_all(void)
     REGISTER_DECODER(INDEO4,            indeo4);
     REGISTER_DECODER(INDEO5,            indeo5);
     REGISTER_DECODER(INTERPLAY_VIDEO,   interplay_video);
-    REGISTER_ENCDEC (J2K,               j2k);
-    REGISTER_DECODER(JPEG2000,          jpeg2000);
+    REGISTER_ENCDEC (JPEG2000,          jpeg2000);
     REGISTER_ENCDEC (JPEGLS,            jpegls);
     REGISTER_DECODER(JV,                jv);
     REGISTER_DECODER(KGV1,              kgv1);
@@ -366,7 +366,7 @@ void avcodec_register_all(void)
     REGISTER_DECODER(TAK,               tak);
     REGISTER_DECODER(TRUEHD,            truehd);
     REGISTER_DECODER(TRUESPEECH,        truespeech);
-    REGISTER_DECODER(TTA,               tta);
+    REGISTER_ENCDEC (TTA,               tta);
     REGISTER_DECODER(TWINVQ,            twinvq);
     REGISTER_DECODER(VMDAUDIO,          vmdaudio);
     REGISTER_ENCDEC (VORBIS,            vorbis);

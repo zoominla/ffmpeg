@@ -3091,9 +3091,14 @@ static int mov_flush_fragment(AVFormatContext *s)
             MOVFragmentInfo *info;
             avio_flush(s->pb);
             track->nb_frag_info++;
-            track->frag_info = av_realloc(track->frag_info,
-                                          sizeof(*track->frag_info) *
-                                          track->nb_frag_info);
+            if (track->nb_frag_info >= track->frag_info_capacity) {
+                unsigned new_capacity = track->nb_frag_info + MOV_FRAG_INFO_ALLOC_INCREMENT;
+                if (av_reallocp_array(&track->frag_info,
+                                      new_capacity,
+                                      sizeof(*track->frag_info)))
+                    return AVERROR(ENOMEM);
+                track->frag_info_capacity = new_capacity;
+            }
             info = &track->frag_info[track->nb_frag_info - 1];
             info->offset   = avio_tell(s->pb);
             info->time     = mov->tracks[i].frag_start;
@@ -3214,10 +3219,12 @@ int ff_mov_write_packet(AVFormatContext *s, AVPacket *pkt)
         memcpy(trk->vos_data, pkt->data, size);
     }
 
-    if (!(trk->entry % MOV_INDEX_CLUSTER_SIZE)) {
-        trk->cluster = av_realloc_f(trk->cluster, sizeof(*trk->cluster), (trk->entry + MOV_INDEX_CLUSTER_SIZE));
-        if (!trk->cluster)
-            return -1;
+    if (trk->entry >= trk->cluster_capacity) {
+        unsigned new_capacity = 2*(trk->entry + MOV_INDEX_CLUSTER_SIZE);
+        if (av_reallocp_array(&trk->cluster, new_capacity,
+                              sizeof(*trk->cluster)))
+            return AVERROR(ENOMEM);
+        trk->cluster_capacity = new_capacity;
     }
 
     trk->cluster[trk->entry].pos = avio_tell(pb) - size;

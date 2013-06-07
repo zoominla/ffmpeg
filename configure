@@ -1511,6 +1511,7 @@ HAVE_LIST="
     struct_sockaddr_in6
     struct_sockaddr_sa_len
     struct_sockaddr_storage
+    struct_stat_st_mtim_tv_nsec
     struct_v4l2_frmivalenum_discrete
     symver_asm_label
     symver_gnu_asm
@@ -1770,6 +1771,7 @@ flv_decoder_select="h263_decoder"
 flv_encoder_select="h263_encoder"
 fourxm_decoder_select="dsputil"
 fraps_decoder_select="dsputil huffman"
+g2m_decoder_select="dsputil zlib"
 g729_decoder_select="dsputil"
 h261_decoder_select="error_resilience mpegvideo"
 h261_encoder_select="aandcttables mpegvideoenc"
@@ -2084,6 +2086,8 @@ v4l2_indev_deps_any="linux_videodev2_h sys_videoio_h"
 v4l2_outdev_deps_any="linux_videodev2_h sys_videoio_h"
 vfwcap_indev_deps="capCreateCaptureWindow vfwcap_defines"
 vfwcap_indev_extralibs="-lavicap32"
+xv_outdev_deps="X11_extensions_Xvlib_h XvGetPortAttribute"
+xv_outdev_extralibs="-lXv -lX11 -lXext"
 x11grab_indev_deps="x11grab"
 
 # protocols
@@ -2151,6 +2155,7 @@ hqdn3d_filter_deps="gpl"
 hue_filter_deps="gpl"
 interlace_filter_deps="gpl"
 kerndeint_filter_deps="gpl"
+mcdeint_filter_deps="avcodec gpl"
 movie_filter_deps="avcodec avformat"
 mp_filter_deps="gpl avcodec swscale inline_asm"
 mpdecimate_filter_deps="gpl avcodec"
@@ -2163,6 +2168,7 @@ owdenoise_filter_deps="gpl"
 pan_filter_deps="swresample"
 pp_filter_deps="gpl postproc"
 removelogo_filter_deps="avcodec avformat swscale"
+sab_filter_deps="gpl swscale"
 scale_filter_deps="swscale"
 smartblur_filter_deps="gpl swscale"
 showspectrum_filter_deps="avcodec rdft"
@@ -2645,26 +2651,53 @@ ccc_flags(){
    done
 }
 
-msvc_flags(){
+msvc_common_flags(){
     for flag; do
         case $flag in
+            # In addition to specifying certain flags under the compiler
+            # specific filters, they must be specified here as well or else the
+            # generic catch all at the bottom will print the original flag.
+            -Wall)                ;;
+            -std=c99)             ;;
+            # Common flags
             -fomit-frame-pointer) echo -Oy ;;
             -g)                   echo -Z7 ;;
-            -Wall)                echo -W4 -wd4244 -wd4127 -wd4018 -wd4389 \
-                                       -wd4146 -wd4057 -wd4204 -wd4706 -wd4305 \
-                                       -wd4152 -wd4324 -we4013 -wd4100 -wd4214 \
-                                       -wd4554 \
-                                       -wd4996 -wd4273 ;;
-            -std=c99)             ;;
             -fno-math-errno)      ;;
             -fno-common)          ;;
             -fno-signed-zeros)    ;;
             -fPIC)                ;;
+            -mthumb)              ;;
+            -march=*)             ;;
             -lz)                  echo zlib.lib ;;
             -lavifil32)           echo vfw32.lib ;;
             -lavicap32)           echo vfw32.lib user32.lib ;;
             -l*)                  echo ${flag#-l}.lib ;;
             *)                    echo $flag ;;
+        esac
+    done
+}
+
+msvc_flags(){
+    msvc_common_flags "$@"
+    for flag; do
+        case $flag in
+            -Wall)                echo -W4 -wd4244 -wd4127 -wd4018 -wd4389 \
+                                       -wd4146 -wd4057 -wd4204 -wd4706 -wd4305 \
+                                       -wd4152 -wd4324 -we4013 -wd4100 -wd4214 \
+                                       -wd4554 \
+                                       -wd4996 -wd4273 ;;
+        esac
+    done
+}
+
+icl_flags(){
+    msvc_common_flags "$@"
+    for flag; do
+        case $flag in
+            # Despite what Intel's documentation says -Wall, which is supported
+            # on Windows, does enable remarks so disable them here.
+            -Wall)                echo $flag -Qdiag-disable:remark ;;
+            -std=c99)             echo -Qstd=c99 ;;
         esac
     done
 }
@@ -2896,13 +2929,13 @@ probe_cc(){
         fi
         _cc_o='-Fo $@'
         _cc_e='-P'
-        _flags_filter=msvc_flags
+        _flags_filter=icl_flags
         _ld_lib='lib%.a'
         _ld_path='-libpath:'
         # -Qdiag-error to make icl error when presented with certain unknown arguments
-        _flags='-nologo -Qdiag-error:10157 -Qdiag-error:4044'
+        _flags='-nologo -Qdiag-error:4044,10157'
         # -Qvec- -Qsimd- to prevent miscompilation, -GS for consistency with msvc which enables it by default
-        _cflags='-D_USE_MATH_DEFINES -Dinline=__inline -FIstdlib.h -Dstrtoll=_strtoi64 -Qstd=c99 -Qms0 -Qvec- -Qsimd- -GS'
+        _cflags='-D_USE_MATH_DEFINES -Dinline=__inline -FIstdlib.h -Dstrtoll=_strtoi64 -Qms0 -Qvec- -Qsimd- -GS'
         if [ $pfx = hostcc ]; then
             append _cflags -Dsnprintf=_snprintf
         fi
@@ -3956,6 +3989,7 @@ check_func  mprotect
 check_func  ${malloc_prefix}posix_memalign      && enable posix_memalign
 check_func_headers malloc.h _aligned_malloc     && enable aligned_malloc
 check_func  setrlimit
+check_struct "sys/stat.h" "struct stat" st_mtim.tv_nsec -D_BSD_SOURCE
 check_func  strerror_r
 check_func  sched_getaffinity
 check_builtin sync_val_compare_and_swap "" "int *ptr; int oldval, newval; __sync_val_compare_and_swap(ptr, oldval, newval)"
@@ -3980,6 +4014,7 @@ check_func_headers windows.h SetConsoleTextAttribute
 check_func_headers windows.h Sleep
 check_func_headers windows.h VirtualAlloc
 check_func_headers glob.h glob
+check_func_headers "X11/Xlib.h X11/extensions/Xvlib.h" XvGetPortAttribute -lXv -lX11 -lXext
 
 check_header cl/cl.h
 check_header direct.h
@@ -4219,7 +4254,9 @@ enabled jack_indev && check_lib2 jack/jack.h jack_client_open -ljack && check_fu
 enabled_any sndio_indev sndio_outdev && check_lib2 sndio.h sio_open -lsndio
 
 if enabled libcdio; then
-    check_lib2 "cdio/cdda.h cdio/paranoia.h" cdio_cddap_open -lcdio_paranoia -lcdio_cdda -lcdio || check_lib2 "cdio/paranoia/cdda.h cdio/paranoia/paranoia.h" cdio_cddap_open -lcdio_paranoia -lcdio_cdda -lcdio
+    check_lib2 "cdio/cdda.h cdio/paranoia.h" cdio_cddap_open -lcdio_paranoia -lcdio_cdda -lcdio ||
+    check_lib2 "cdio/paranoia/cdda.h cdio/paranoia/paranoia.h" cdio_cddap_open -lcdio_paranoia -lcdio_cdda -lcdio ||
+    die "ERROR: libcdio-paranoia not found"
 fi
 
 enabled x11grab                                           &&
@@ -4379,7 +4416,6 @@ elif enabled msvc; then
     enabled x86_32 && disable aligned_stack
 elif enabled icl; then
     enabled x86_32 && disable aligned_stack
-    check_cflags -W1 # Just warnings, no remark spam
     # basically -fstrict-aliasing for icl that doesn't work (correctly) on 13.x+
     check_cpp_condition "windows.h" "__ICL < 1300" && add_cflags -Qansi-alias
     # icl will pass the inline asm tests but inline asm is currently not supported (build will fail)

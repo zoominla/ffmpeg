@@ -2264,7 +2264,8 @@ static int matroska_parse_frame(MatroskaDemuxContext *matroska,
     /* XXX: prevent data copy... */
     if (av_new_packet(pkt, pkt_size + offset) < 0) {
         av_free(pkt);
-        return AVERROR(ENOMEM);
+        res = AVERROR(ENOMEM);
+        goto fail;
     }
 
     if (st->codec->codec_id == AV_CODEC_ID_PRORES) {
@@ -2276,7 +2277,7 @@ static int matroska_parse_frame(MatroskaDemuxContext *matroska,
     memcpy(pkt->data + offset, pkt_data, pkt_size);
 
     if (pkt_data != data)
-        av_free(pkt_data);
+        av_freep(&pkt_data);
 
     pkt->flags = is_keyframe;
     pkt->stream_index = st->index;
