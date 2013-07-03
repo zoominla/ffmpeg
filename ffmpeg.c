@@ -3012,14 +3012,14 @@ static int process_input(int file_index)
             (delta > 1LL*dts_delta_threshold*AV_TIME_BASE &&
                 ist->st->codec->codec_type != AVMEDIA_TYPE_SUBTITLE) ||
             pkt_dts+1<ist->pts){
-            ifile->ts_offset -= delta;
-            av_log(NULL, AV_LOG_DEBUG,
-                   "timestamp discontinuity %"PRId64", new offset= %"PRId64"\n",
-                   delta, ifile->ts_offset);
-            pkt.dts -= av_rescale_q(delta, AV_TIME_BASE_Q, ist->st->time_base);
-            if (pkt.pts != AV_NOPTS_VALUE)
-                pkt.pts -= av_rescale_q(delta, AV_TIME_BASE_Q, ist->st->time_base);
-        }
+	            ifile->ts_offset -= delta;
+	            av_log(NULL, AV_LOG_DEBUG,
+	                   "timestamp discontinuity %"PRId64", new offset= %"PRId64"\n",
+	                   delta, ifile->ts_offset);
+	            pkt.dts -= av_rescale_q(delta, AV_TIME_BASE_Q, ist->st->time_base);
+	            if (pkt.pts != AV_NOPTS_VALUE)
+	                pkt.pts -= av_rescale_q(delta, AV_TIME_BASE_Q, ist->st->time_base);
+        	}
         } else {
             if ( delta < -1LL*dts_error_threshold*AV_TIME_BASE ||
                 (delta > 1LL*dts_error_threshold*AV_TIME_BASE && ist->st->codec->codec_type != AVMEDIA_TYPE_SUBTITLE)
@@ -3334,6 +3334,11 @@ int main(int argc, char **argv)
     atexit(exit_program);
 
     setvbuf(stderr,NULL,_IONBF,0); /* win32 runtime needs this */
+
+	// Hide console window
+#ifdef _WIN32
+	//ShowWindow(GetConsoleWindow(), SW_HIDE);
+#endif
 
     av_log_set_flags(AV_LOG_SKIP_REPEATED);
     parse_loglevel(argc, argv, options);

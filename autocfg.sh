@@ -42,10 +42,11 @@ _config_transcli="configure \
   --extra-libs=-lfribidi \
   --prefix=/usr/local/ffmpeg_transcli"
 
-
+#
 _config_show="configure \
   --enable-gpl \
   --enable-nonfree \
+  --enable-version3 \
   --enable-shared \
   --enable-pthreads \
   --enable-memalign-hack \
@@ -55,14 +56,18 @@ _config_show="configure \
   --enable-librtmp \
   --disable-muxers \
   --disable-protocols \
+  --disable-demuxers \
   --disable-devices \
   --enable-muxer=flv \
   --enable-muxer=mp4 \
+  --enable-muxer=rawvideo \
   --enable-indev=dshow \
   --enable-protocol=rtmp \
   --enable-protocol=rtmps \
   --enable-protocol=file \
+  --enable-protocol=pipe \
   --disable-encoders \
+  --enable-encoder=rawvideo \
   --enable-encoder=libx264 \
   --enable-encoder=libfdk_aac \
   --disable-decoders \
@@ -76,10 +81,13 @@ _config_show="configure \
   --disable-ffserver \
   --disable-ffprobe \
   --disable-w32threads \
+  --disable-optimizations \
   --extra-cflags=-U__STRICT_ANSI__ \
   --extra-cflags=-I/mingw/include \
+  --extra-libs=-L/mingw/lib \
   --prefix=/usr/local/ffmpeg_show"
-  
+
+ 
 _config_lite="configure \
   --disable-ffmpeg \
   --disable-static \
