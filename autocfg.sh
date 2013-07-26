@@ -28,6 +28,7 @@ _config_transcli="configure \
   --enable-libass \
   --enable-libfreetype \
   --disable-devices \
+  --enable-indev=dshow \
   --disable-doc \
   --disable-static \
   --disable-ffserver \
@@ -42,6 +43,7 @@ _config_transcli="configure \
   --extra-libs=-lfribidi \
   --prefix=/usr/local/ffmpeg_transcli"
 
+#--disable-protocols \
 #
 _config_show="configure \
   --enable-gpl \
@@ -51,21 +53,26 @@ _config_show="configure \
   --enable-pthreads \
   --enable-memalign-hack \
   --enable-runtime-cpudetect \
+  --enable-librtmp \
   --enable-libx264 \
   --enable-libfdk-aac \
-  --enable-librtmp \
   --disable-muxers \
-  --disable-protocols \
+  --disable-bsfs \
+  --disable-parsers \
   --disable-demuxers \
   --disable-devices \
   --enable-muxer=flv \
   --enable-muxer=mp4 \
   --enable-muxer=rawvideo \
   --enable-indev=dshow \
-  --enable-protocol=rtmp \
-  --enable-protocol=rtmps \
+  --disable-protocols \
+  --enable-protocol=librtmp \
+  --enable-protocol=librtmps \
+  --enable-protocol=librtmpe \
+  --enable-protocol=http \
   --enable-protocol=file \
   --enable-protocol=pipe \
+  --enable-protocol=md5 \
   --disable-encoders \
   --enable-encoder=rawvideo \
   --enable-encoder=libx264 \
@@ -76,10 +83,24 @@ _config_show="configure \
   --enable-decoder=pcm_u16le \
   --enable-decoder=pcm_f32le \
   --enable-decoder=pcm_u8 \
+  --disable-filter=ass --disable-filter=bbox \
+  --disable-filter=blackdetect --disable-filter=blackframe \
+  --disable-filter=blend --disable-filter=boxblur \
+  --disable-filter=cropdetect --disable-filter=curves \
+  --disable-filter=delogo --disable-filter=deshake \
+  --disable-filter=haldclut --disable-filter=hflip \
+  --disable-filter=histeq --disable-filter=histogram \
+  --disable-filter=hqdn3d --disable-filter=mp \
+  --disable-filter=noise --disable-filter=mpdecimate \
+  --disable-filter=overlay --disable-filter=pad \
+  --disable-filter=owdenoise --disable-filter=pp \
+  --disable-filter=removelogo --disable-filter=rotate \
+  --disable-postproc \
   --disable-doc \
   --disable-static \
   --disable-ffserver \
   --disable-ffprobe \
+  --enable-ffmpeg \
   --disable-w32threads \
   --disable-optimizations \
   --extra-cflags=-U__STRICT_ANSI__ \

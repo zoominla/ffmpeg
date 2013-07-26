@@ -196,6 +196,8 @@ static int shall_we_drop(AVFormatContext *s)
     return 0;
 }
 
+static int dshowDropFramesNum = 0;
+
 static void
 callback(void *priv_data, int index, uint8_t *buf, int buf_size, int64_t time)
 {
@@ -207,8 +209,13 @@ callback(void *priv_data, int index, uint8_t *buf, int buf_size, int64_t time)
 
     WaitForSingleObject(ctx->mutex, INFINITE);
 
-    if(shall_we_drop(s))
+    if(shall_we_drop(s)) {
+		dshowDropFramesNum++;
+		if(dshowDropFramesNum > 220) {	// If drop too many frames, then end capture
+			ctx->eof = 1;
+		}
         goto fail;
+    }
 
     pktl_next = av_mallocz(sizeof(AVPacketList));
     if(!pktl_next)
@@ -228,6 +235,8 @@ callback(void *priv_data, int index, uint8_t *buf, int buf_size, int64_t time)
 
     ctx->curbufsize += buf_size;
 
+	// If read packet successfully, then reset dshowDropFramesNum
+	dshowDropFramesNum = 0;
     SetEvent(ctx->event[1]);
     ReleaseMutex(ctx->mutex);
 
