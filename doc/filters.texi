@@ -2101,6 +2101,13 @@ Value of pixel component at current location for first video frame (top layer).
 @item BOTTOM, B
 Value of pixel component at current location for second video frame (bottom layer).
 @end table
+
+@item shortest
+Force termination when the shortest input terminates. Default is @code{0}.
+@item repeatlast
+Continue applying the last bottom frame after the end of the stream. A value of
+@code{0} disable the filter after the last frame of the bottom layer is reached.
+Default is @code{1}.
 @end table
 
 @subsection Examples
@@ -2780,8 +2787,8 @@ Specify the thickness of the fuzzy edge of the rectangle (added to
 
 @item show
 When set to 1, a green rectangle is drawn on the screen to simplify
-finding the right @var{x}, @var{y}, @var{w}, @var{h} parameters, and
-@var{band} is set to 4. The default value is 0.
+finding the right @var{x}, @var{y}, @var{w}, and @var{h} parameters.
+The default value is 0.
 
 @end table
 
@@ -2886,11 +2893,11 @@ This filter accepts the following options:
 @table @option
 @item x
 @item y
-Specify the top left corner coordinates of the box. Default to 0.
+The expressions which specify the top left corner coordinates of the box. Default to 0.
 
 @item width, w
 @item height, h
-Specify the width and height of the box, if 0 they are interpreted as
+The expressions which specify the width and height of the box, if 0 they are interpreted as
 the input width and height. Default to 0.
 
 @item color, c
@@ -2900,7 +2907,44 @@ value @code{invert} is used, the box edge color is the same as the
 video with inverted luma.
 
 @item thickness, t
-Set the thickness of the box edge. Default value is @code{4}.
+The expression which sets the thickness of the box edge. Default value is @code{3}.
+
+See below for the list of accepted constants.
+@end table
+
+The parameters for @var{x}, @var{y}, @var{w} and @var{h} and @var{t} are expressions containing the
+following constants:
+
+@table @option
+@item dar
+The input display aspect ratio, it is the same as (@var{w} / @var{h}) * @var{sar}.
+
+@item hsub
+@item vsub
+horizontal and vertical chroma subsample values. For example for the
+pixel format "yuv422p" @var{hsub} is 2 and @var{vsub} is 1.
+
+@item in_h, ih
+@item in_w, iw
+The input width and height.
+
+@item sar
+The input sample aspect ratio.
+
+@item x
+@item y
+The x and y offset coordinates where the box is drawn.
+
+@item w
+@item h
+The width and height of the drawn box.
+
+@item t
+The thickness of the drawn box.
+
+These constants allow the @var{x}, @var{y}, @var{w}, @var{h} and @var{t} expressions to refer to
+each other, so you may for example specify @code{y=x/dar} or @code{h=w/dar}.
+
 @end table
 
 @subsection Examples
@@ -2928,6 +2972,12 @@ Fill the box with pink color:
 @example
 drawbox=x=10:y=10:w=100:h=100:color=pink@@0.5:t=max
 @end example
+
+@item
+Draw a 2-pixel red 2.40:1 mask:
+@example
+drawbox=x=-t:y=0.5*(ih-iw/2.4)-t:w=iw+t*2:h=iw/2.4+t*2:t=2:c=red
+@end example
 @end itemize
 
 @section drawgrid
@@ -2939,11 +2989,11 @@ This filter accepts the following options:
 @table @option
 @item x
 @item y
-Specify the coordinates of some point of grid intersection (meant to configure offset). Both default to 0.
+The expressions which specify the coordinates of some point of grid intersection (meant to configure offset). Both default to 0.
 
 @item width, w
 @item height, h
-Specify the width and height of the grid cell, if 0 they are interpreted as the
+The expressions which specify the width and height of the grid cell, if 0 they are interpreted as the
 input width and height, respectively, minus @code{thickness}, so image gets
 framed. Default to 0.
 
@@ -2956,7 +3006,44 @@ Note that you can append opacity value (in range of 0.0 - 1.0)
 to color name after @@ sign.
 
 @item thickness, t
-Set the thickness of the grid line. Default value is @code{1}.
+The expression which sets the thickness of the grid line. Default value is @code{1}.
+
+See below for the list of accepted constants.
+@end table
+
+The parameters for @var{x}, @var{y}, @var{w} and @var{h} and @var{t} are expressions containing the
+following constants:
+
+@table @option
+@item dar
+The input display aspect ratio, it is the same as (@var{w} / @var{h}) * @var{sar}.
+
+@item hsub
+@item vsub
+horizontal and vertical chroma subsample values. For example for the
+pixel format "yuv422p" @var{hsub} is 2 and @var{vsub} is 1.
+
+@item in_h, ih
+@item in_w, iw
+The input grid cell width and height.
+
+@item sar
+The input sample aspect ratio.
+
+@item x
+@item y
+The x and y coordinates of some point of grid intersection (meant to configure offset).
+
+@item w
+@item h
+The width and height of the drawn cell.
+
+@item t
+The thickness of the drawn cell.
+
+These constants allow the @var{x}, @var{y}, @var{w}, @var{h} and @var{t} expressions to refer to
+each other, so you may for example specify @code{y=x/dar} or @code{h=w/dar}.
+
 @end table
 
 @subsection Examples
@@ -2966,6 +3053,12 @@ Set the thickness of the grid line. Default value is @code{1}.
 Draw a grid with cell 100x100 pixels, thickness 2 pixels, with color red and an opacity of 50%:
 @example
 drawgrid=width=100:height=100:thickness=2:color=red@@0.5
+@end example
+
+@item
+Draw a white 3x3 grid with an opacity of 50%:
+@example
+drawgrid=w=iw/3:h=ih/3:t=2:c=white@@0.5
 @end example
 @end itemize
 
@@ -3067,6 +3160,10 @@ The default value of @var{shadowcolor} is "black".
 The x and y offsets for the text shadow position with respect to the
 position of the text. They can be either positive or negative
 values. Default value for both is "0".
+
+@item start_number
+The starting frame number for the n/frame_num variable. The default value
+is "0".
 
 @item tabsize
 The size in number of spaces to use for rendering the tab.
@@ -3230,6 +3327,9 @@ It can accept an argument: a strftime() format string.
 @item localtime
 The time at which the filter is running, expressed in the local time zone.
 It can accept an argument: a strftime() format string.
+
+@item metadata
+Frame metadata. It must take one argument specifying metadata key.
 
 @item n, frame_num
 The frame number, starting from 0.
@@ -3535,7 +3635,7 @@ Default value is @var{auto}.
 
 @item mode
 Set the matching mode or strategy to use. @option{pc} mode is the safest in the
-sense that it wont risk creating jerkiness due to duplicate frames when
+sense that it won't risk creating jerkiness due to duplicate frames when
 possible, but if there are bad edits or blended fields it will end up
 outputting combed frames when a good match might actually exist. On the other
 hand, @option{pcn_ub} mode is the most risky in terms of creating jerkiness,
@@ -4571,7 +4671,7 @@ The filter accepts the following options:
 
 @table @option
 @item luma_mode, l
-@item chroma_mode, s
+@item chroma_mode, c
 @item alpha_mode, a
 Available values for @var{luma_mode}, @var{chroma_mode} and
 @var{alpha_mode} are:
@@ -4932,7 +5032,6 @@ The list of the currently supported filters follows:
 @item pullup
 @item qp
 @item softpulldown
-@item spp
 @item uspp
 @end table
 
@@ -5249,7 +5348,7 @@ color space. Default value is 0. This option is deprecated, use
 @item repeatlast
 If set to 1, force the filter to draw the last overlay frame over the
 main input until the end of the stream. A value of 0 disables this
-behavior, which is enabled by default.
+behavior. Default value is 1.
 @end table
 
 The @option{x}, and @option{y} expressions can contain the following
@@ -5741,6 +5840,74 @@ pp=hb|y/vb|a
 @end example
 @end itemize
 
+@section psnr
+
+Obtain the average, maximum and minimum PSNR (Peak Signal to Noise
+Ratio) between two input videos.
+
+This filter takes in input two input videos, the first input is
+considered the "main" source and is passed unchanged to the
+output. The second input is used as a "reference" video for computing
+the PSNR.
+
+Both video inputs must have the same resolution and pixel format for
+this filter to work correctly. Also it assumes that both inputs
+have the same number of frames, which are compared one by one.
+
+The obtained average PSNR is printed through the logging system.
+
+The filter stores the accumulated MSE (mean squared error) of each
+frame, and at the end of the processing it is averaged across all frames
+equally, and the following formula is applied to obtain the PSNR:
+
+@example
+PSNR = 10*log10(MAX^2/MSE)
+@end example
+
+Where MAX is the average of the maximum values of each component of the
+image.
+
+The description of the accepted parameters follows.
+
+@table @option
+@item stats_file, f
+If specified the filter will use the named file to save the PSNR of
+each individual frame.
+@end table
+
+The file printed if @var{stats_file} is selected, contains a sequence of
+key/value pairs of the form @var{key}:@var{value} for each compared
+couple of frames.
+
+A description of each shown parameter follows:
+
+@table @option
+@item n
+sequential number of the input frame, starting from 1
+
+@item mse_avg
+Mean Square Error pixel-by-pixel average difference of the compared
+frames, averaged over all the image components.
+
+@item mse_y, mse_u, mse_v, mse_r, mse_g, mse_g, mse_a
+Mean Square Error pixel-by-pixel average difference of the compared
+frames for the component specified by the suffix.
+
+@item psnr_y, psnr_u, psnr_v, psnr_r, psnr_g, psnr_b, psnr_a
+Peak Signal to Noise ratio of the compared frames for the component
+specified by the suffix.
+@end table
+
+For example:
+@example
+movie=ref_movie.mpg, setpts=PTS-STARTPTS [main];
+[main][ref] psnr="stats_file=stats.log" [out]
+@end example
+
+On this example the input file being processed is compared with the
+reference file @file{ref_movie.mpg}. The PSNR of each individual frame
+is stored in @file{stats.log}.
+
 @section removelogo
 
 Suppress a TV station logo, using an image file to determine which
@@ -5770,6 +5937,131 @@ reduced. Marking too many pixels as part of the logo does not hurt as
 much, but it will increase the amount of blurring needed to cover over
 the image and will destroy more information than necessary, and extra
 pixels will slow things down on a large logo.
+
+@section rotate
+
+Rotate video by an arbitrary angle expressed in radians.
+
+The filter accepts the following options:
+
+A description of the optional parameters follows.
+@table @option
+@item angle, a
+Set an expression for the angle by which to rotate the input video
+clockwise, expressed as a number of radians. A negative value will
+result in a counter-clockwise rotation. By default it is set to "0".
+
+This expression is evaluated for each frame.
+
+@item out_w, ow
+Set the output width expression, default value is "iw".
+This expression is evaluated just once during configuration.
+
+@item out_h, oh
+Set the output height expression, default value is "ih".
+This expression is evaluated just once during configuration.
+
+@item bilinear
+Enable bilinear interpolation if set to 1, a value of 0 disables
+it. Default value is 1.
+
+@item fillcolor, c
+Set the color used to fill the output area not covered by the rotated
+image. If the special value "none" is selected then no background is
+printed (useful for example if the background is never shown). Default
+value is "black".
+@end table
+
+The expressions for the angle and the output size can contain the
+following constants and functions:
+
+@table @option
+@item n
+sequential number of the input frame, starting from 0. It is always NAN
+before the first frame is filtered.
+
+@item t
+time in seconds of the input frame, it is set to 0 when the filter is
+configured. It is always NAN before the first frame is filtered.
+
+@item hsub
+@item vsub
+horizontal and vertical chroma subsample values. For example for the
+pixel format "yuv422p" @var{hsub} is 2 and @var{vsub} is 1.
+
+@item in_w, iw
+@item in_h, ih
+the input video width and heigth
+
+@item out_w, ow
+@item out_h, oh
+the output width and heigth, that is the size of the padded area as
+specified by the @var{width} and @var{height} expressions
+
+@item rotw(a)
+@item roth(a)
+the minimal width/height required for completely containing the input
+video rotated by @var{a} radians.
+
+These are only available when computing the @option{out_w} and
+@option{out_h} expressions.
+@end table
+
+@subsection Examples
+
+@itemize
+@item
+Rotate the input by PI/6 radians clockwise:
+@example
+rotate=PI/6
+@end example
+
+@item
+Rotate the input by PI/6 radians counter-clockwise:
+@example
+rotate=-PI/6
+@end example
+
+@item
+Apply a constant rotation with period T, starting from an angle of PI/3:
+@example
+rotate=PI/3+2*PI*t/T
+@end example
+
+@item
+Make the input video rotation oscillating with a period of T
+seconds and an amplitude of A radians:
+@example
+rotate=A*sin(2*PI/T*t)
+@end example
+
+@item
+Rotate the video, output size is choosen so that the whole rotating
+input video is always completely contained in the output:
+@example
+rotate='2*PI*t:ow=hypot(iw,ih):oh=ow'
+@end example
+
+@item
+Rotate the video, reduce the output size so that no background is ever
+shown:
+@example
+rotate=2*PI*t:ow='min(iw,ih)/sqrt(2)':oh=ow:c=none
+@end example
+@end itemize
+
+@subsection Commands
+
+The filter supports the following commands:
+
+@table @option
+@item a, angle
+Set the angle expression.
+The command accepts the same syntax of the corresponding option.
+
+If the specified expression is not valid, it is kept at its current
+value.
+@end table
 
 @section sab
 
@@ -6350,6 +6642,42 @@ Convert input video from above bellow (left eye above, right eye below) to side 
 stereo3d=abl:sbsr
 @end example
 @end itemize
+
+@section spp
+
+Apply a simple postprocessing filter that compresses and decompresses the image
+at several (or - in the case of @option{quality} level @code{6} - all) shifts
+and average the results.
+
+The filter accepts the following options:
+
+@table @option
+@item quality
+Set quality. This option defines the number of levels for averaging. It accepts
+an integer in the range 0-6. If set to @code{0}, the filter will have no
+effect. A value of @code{6} means the higher quality. For each increment of
+that value the speed drops by a factor of approximately 2.  Default value is
+@code{3}.
+
+@item qp
+Force a constant quantization parameter. If not set, the filter will use the QP
+from the video stream (if available).
+
+@item mode
+Set thresholding mode. Available modes are:
+
+@table @samp
+@item hard
+Set hard thresholding (default).
+@item soft
+Set soft thresholding (better de-ringing effect, but likely blurrier).
+@end table
+
+@item use_bframe_qp
+Enable the use of the QP from the B-Frames if set to @code{1}. Using this
+option may cause flicker since the B-Frames have often larger QP. Default is
+@code{0} (not enabled).
+@end table
 
 @anchor{subtitles}
 @section subtitles

@@ -162,7 +162,9 @@ void avfilter_register_all(void)
     REGISTER_FILTER(PERMS,          perms,          vf);
     REGISTER_FILTER(PIXDESCTEST,    pixdesctest,    vf);
     REGISTER_FILTER(PP,             pp,             vf);
+    REGISTER_FILTER(PSNR,           psnr,           vf);
     REGISTER_FILTER(REMOVELOGO,     removelogo,     vf);
+    REGISTER_FILTER(ROTATE,         rotate,         vf);
     REGISTER_FILTER(SAB,            sab,            vf);
     REGISTER_FILTER(SCALE,          scale,          vf);
     REGISTER_FILTER(SELECT,         select,         vf);
@@ -176,6 +178,7 @@ void avfilter_register_all(void)
     REGISTER_FILTER(SHOWINFO,       showinfo,       vf);
     REGISTER_FILTER(SMARTBLUR,      smartblur,      vf);
     REGISTER_FILTER(SPLIT,          split,          vf);
+    REGISTER_FILTER(SPP,            spp,            vf);
     REGISTER_FILTER(STEREO3D,       stereo3d,       vf);
     REGISTER_FILTER(SUBTITLES,      subtitles,      vf);
     REGISTER_FILTER(SUPER2XSAI,     super2xsai,     vf);

@@ -535,7 +535,7 @@ static av_cold int initFilter(int16_t **outFilter, int32_t **filterPos,
             filterAlign = 1;
     }
 
-    if (INLINE_MMX(cpu_flags)) {
+    if (HAVE_MMX && cpu_flags & AV_CPU_FLAG_MMX) {
         // special case for unscaled vertical filtering
         if (minFilterSize == 1 && filterAlign == 2)
             filterAlign = 1;
@@ -1011,6 +1011,8 @@ static int handle_jpeg(enum AVPixelFormat *format)
         return 1;
     case AV_PIX_FMT_YUVJ440P:
         *format = AV_PIX_FMT_YUV440P;
+        return 1;
+    case AV_PIX_FMT_GRAY8:
         return 1;
     default:
         return 0;

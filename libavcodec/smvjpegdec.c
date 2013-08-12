@@ -36,6 +36,7 @@ typedef struct SMVJpegDecodeContext {
     AVFrame *picture[2]; /* pictures array */
     AVCodecContext* avctx;
     int frames_per_jpeg;
+    int mjpeg_data_size;
 } SMVJpegDecodeContext;
 
 static inline void smv_img_pnt_plane(uint8_t      **dst, uint8_t *src,
@@ -55,7 +56,7 @@ static inline void smv_img_pnt(uint8_t *dst_data[4], uint8_t *src_data[4],
     const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(pix_fmt);
     int i, planes_nb = 0;
 
-    if (desc->flags & PIX_FMT_HWACCEL)
+    if (desc->flags & AV_PIX_FMT_FLAG_HWACCEL)
         return;
 
     for (i = 0; i < desc->nb_components; i++)
@@ -69,6 +70,9 @@ static inline void smv_img_pnt(uint8_t *dst_data[4], uint8_t *src_data[4],
         smv_img_pnt_plane(&dst_data[i], src_data[i],
             src_linesizes[i], h, nlines);
     }
+    if (desc->flags & AV_PIX_FMT_FLAG_PAL ||
+        desc->flags & AV_PIX_FMT_FLAG_PSEUDOPAL)
+        dst_data[1] = src_data[1];
 }
 
 static av_cold int smvjpeg_decode_init(AVCodecContext *avctx)
@@ -98,8 +102,6 @@ static av_cold int smvjpeg_decode_init(AVCodecContext *avctx)
         ret = -1;
     }
 
-    avcodec_get_frame_defaults(s->picture[1]);
-    avctx->coded_frame = s->picture[1];
     codec = avcodec_find_decoder(AV_CODEC_ID_MJPEG);
     if (!codec) {
         av_log(avctx, AV_LOG_ERROR, "MJPEG codec not found\n");
@@ -109,6 +111,7 @@ static av_cold int smvjpeg_decode_init(AVCodecContext *avctx)
     s->avctx = avcodec_alloc_context3(codec);
 
     av_dict_set(&thread_opt, "threads", "1", 0);
+    s->avctx->refcounted_frames = 1;
     s->avctx->flags = avctx->flags;
     s->avctx->idct_algo = avctx->idct_algo;
     if (ff_codec_open2_recursive(s->avctx, codec, &thread_opt) < 0) {
@@ -123,6 +126,7 @@ static av_cold int smvjpeg_decode_init(AVCodecContext *avctx)
 static int smvjpeg_decode_frame(AVCodecContext *avctx, void *data, int *data_size,
                             AVPacket *avpkt)
 {
+    const AVPixFmtDescriptor *desc;
     SMVJpegDecodeContext *s = avctx->priv_data;
     AVFrame* mjpeg_data = s->picture[0];
     int i, cur_frame = 0, ret = 0;
@@ -130,10 +134,20 @@ static int smvjpeg_decode_frame(AVCodecContext *avctx, void *data, int *data_siz
     cur_frame = avpkt->pts % s->frames_per_jpeg;
 
     /* Are we at the start of a block? */
-    if (!cur_frame)
-        ret = avcodec_decode_video2(s->avctx, mjpeg_data, data_size, avpkt);
-    else /*use the last lot... */
-        *data_size = sizeof(AVPicture);
+    if (!cur_frame) {
+        av_frame_unref(mjpeg_data);
+        ret = avcodec_decode_video2(s->avctx, mjpeg_data, &s->mjpeg_data_size, avpkt);
+    } else if (!s->mjpeg_data_size)
+        return AVERROR(EINVAL);
+
+    desc = av_pix_fmt_desc_get(s->avctx->pix_fmt);
+    if (desc && mjpeg_data->height % (s->frames_per_jpeg << desc->log2_chroma_h)) {
+        av_log(avctx, AV_LOG_ERROR, "Invalid height\n");
+        return AVERROR_INVALIDDATA;
+    }
+
+    /*use the last lot... */
+    *data_size = s->mjpeg_data_size;
 
     avctx->pix_fmt = s->avctx->pix_fmt;
 
@@ -142,17 +156,19 @@ static int smvjpeg_decode_frame(AVCodecContext *avctx, void *data, int *data_siz
     avcodec_set_dimensions(avctx, mjpeg_data->width,
         mjpeg_data->height / s->frames_per_jpeg);
 
-    s->picture[1]->extended_data = NULL;
-    s->picture[1]->width         = avctx->width;
-    s->picture[1]->height        = avctx->height;
-    s->picture[1]->format        = avctx->pix_fmt;
-    /* ff_init_buffer_info(avctx, &s->picture[1]); */
-    smv_img_pnt(s->picture[1]->data, mjpeg_data->data, mjpeg_data->linesize,
-                avctx->pix_fmt, avctx->width, avctx->height, cur_frame);
-    for (i = 0; i < AV_NUM_DATA_POINTERS; i++)
-        s->picture[1]->linesize[i] = mjpeg_data->linesize[i];
+    if (*data_size) {
+        s->picture[1]->extended_data = NULL;
+        s->picture[1]->width         = avctx->width;
+        s->picture[1]->height        = avctx->height;
+        s->picture[1]->format        = avctx->pix_fmt;
+        /* ff_init_buffer_info(avctx, &s->picture[1]); */
+        smv_img_pnt(s->picture[1]->data, mjpeg_data->data, mjpeg_data->linesize,
+                    avctx->pix_fmt, avctx->width, avctx->height, cur_frame);
+        for (i = 0; i < AV_NUM_DATA_POINTERS; i++)
+            s->picture[1]->linesize[i] = mjpeg_data->linesize[i];
 
-    ret = av_frame_ref(data, s->picture[1]);
+        ret = av_frame_ref(data, s->picture[1]);
+    }
 
     return ret;
 }
@@ -163,6 +179,7 @@ static av_cold int smvjpeg_decode_end(AVCodecContext *avctx)
     MJpegDecodeContext *jpg = &s->jpg;
 
     jpg->picture_ptr = NULL;
+    av_frame_free(&s->picture[0]);
     av_frame_free(&s->picture[1]);
     ff_codec_close_recursive(s->avctx);
     av_freep(&s->avctx);
@@ -183,7 +200,6 @@ AVCodec ff_smvjpeg_decoder = {
     .init           = smvjpeg_decode_init,
     .close          = smvjpeg_decode_end,
     .decode         = smvjpeg_decode_frame,
-    .max_lowres     = 3,
     .long_name      = NULL_IF_CONFIG_SMALL("SMV JPEG"),
     .priv_class     = &smvjpegdec_class,
 };

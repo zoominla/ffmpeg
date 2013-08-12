@@ -354,29 +354,6 @@ static int add_metadata(int count, int type,
     };
 }
 
-#if CONFIG_ZLIB
-static int tiff_uncompress(uint8_t *dst, unsigned long *len, const uint8_t *src,
-                           int size)
-{
-    z_stream zstream = { 0 };
-    int zret;
-
-    zstream.next_in   = (uint8_t *)src;
-    zstream.avail_in  = size;
-    zstream.next_out  = dst;
-    zstream.avail_out = *len;
-    zret              = inflateInit(&zstream);
-    if (zret != Z_OK) {
-        av_log(NULL, AV_LOG_ERROR, "Inflate init error: %d\n", zret);
-        return zret;
-    }
-    zret = inflate(&zstream, Z_SYNC_FLUSH);
-    inflateEnd(&zstream);
-    *len = zstream.total_out;
-    return zret == Z_STREAM_END ? Z_OK : zret;
-}
-#endif
-
 static void av_always_inline horizontal_fill(unsigned int bpp, uint8_t* dst,
                                              int usePtr, const uint8_t *src,
                                              uint8_t c, int width, int offset)
@@ -430,6 +407,106 @@ static int deinvert_buffer(TiffContext *s, const uint8_t *src, int size)
     return 0;
 }
 
+#if CONFIG_ZLIB
+static int tiff_uncompress(uint8_t *dst, unsigned long *len, const uint8_t *src,
+                           int size)
+{
+    z_stream zstream = { 0 };
+    int zret;
+
+    zstream.next_in   = (uint8_t *)src;
+    zstream.avail_in  = size;
+    zstream.next_out  = dst;
+    zstream.avail_out = *len;
+    zret              = inflateInit(&zstream);
+    if (zret != Z_OK) {
+        av_log(NULL, AV_LOG_ERROR, "Inflate init error: %d\n", zret);
+        return zret;
+    }
+    zret = inflate(&zstream, Z_SYNC_FLUSH);
+    inflateEnd(&zstream);
+    *len = zstream.total_out;
+    return zret == Z_STREAM_END ? Z_OK : zret;
+}
+
+static int tiff_unpack_zlib(TiffContext *s, uint8_t *dst, int stride,
+                            const uint8_t *src, int size,
+                            int width, int lines)
+{
+    uint8_t *zbuf;
+    unsigned long outlen;
+    int ret, line;
+    outlen = width * lines;
+    zbuf   = av_malloc(outlen);
+    if (!zbuf)
+        return AVERROR(ENOMEM);
+    if (s->fill_order) {
+        if ((ret = deinvert_buffer(s, src, size)) < 0) {
+            av_free(zbuf);
+            return ret;
+        }
+        src = s->deinvert_buf;
+    }
+    ret = tiff_uncompress(zbuf, &outlen, src, size);
+    if (ret != Z_OK) {
+        av_log(s->avctx, AV_LOG_ERROR,
+               "Uncompressing failed (%lu of %lu) with error %d\n", outlen,
+               (unsigned long)width * lines, ret);
+        av_free(zbuf);
+        return AVERROR_UNKNOWN;
+    }
+    src = zbuf;
+    for (line = 0; line < lines; line++) {
+        if (s->bpp < 8 && s->avctx->pix_fmt == AV_PIX_FMT_PAL8) {
+            horizontal_fill(s->bpp, dst, 1, src, 0, width, 0);
+        } else {
+            memcpy(dst, src, width);
+        }
+        dst += stride;
+        src += width;
+    }
+    av_free(zbuf);
+    return 0;
+}
+#endif
+
+
+static int tiff_unpack_fax(TiffContext *s, uint8_t *dst, int stride,
+                           const uint8_t *src, int size, int width, int lines)
+{
+    int i, ret = 0;
+    int line;
+    uint8_t *src2 = av_malloc((unsigned)size +
+                              FF_INPUT_BUFFER_PADDING_SIZE);
+
+    if (!src2) {
+        av_log(s->avctx, AV_LOG_ERROR,
+               "Error allocating temporary buffer\n");
+        return AVERROR(ENOMEM);
+    }
+    if (s->fax_opts & 2) {
+        avpriv_request_sample(s->avctx, "Uncompressed fax mode");
+        av_free(src2);
+        return AVERROR_PATCHWELCOME;
+    }
+    if (!s->fill_order) {
+        memcpy(src2, src, size);
+    } else {
+        for (i = 0; i < size; i++)
+            src2[i] = ff_reverse[src[i]];
+    }
+    memset(src2 + size, 0, FF_INPUT_BUFFER_PADDING_SIZE);
+    ret = ff_ccitt_unpack(s->avctx, src2, size, dst, lines, stride,
+                          s->compr, s->fax_opts);
+    if (s->bpp < 8 && s->avctx->pix_fmt == AV_PIX_FMT_PAL8)
+        for (line = 0; line < lines; line++) {
+            horizontal_fill(s->bpp, dst, 1, dst, 0, width, 0);
+            dst += stride;
+        }
+    av_free(src2);
+    return ret;
+}
+
 static int tiff_unpack_strip(TiffContext *s, uint8_t *dst, int stride,
                              const uint8_t *src, int size, int lines)
 {
@@ -443,44 +520,16 @@ static int tiff_unpack_strip(TiffContext *s, uint8_t *dst, int stride,
     if (size <= 0)
         return AVERROR_INVALIDDATA;
 
-#if CONFIG_ZLIB
     if (s->compr == TIFF_DEFLATE || s->compr == TIFF_ADOBE_DEFLATE) {
-        uint8_t *zbuf;
-        unsigned long outlen;
-        int ret;
-        outlen = width * lines;
-        zbuf   = av_malloc(outlen);
-        if (!zbuf)
-            return AVERROR(ENOMEM);
-        if (s->fill_order) {
-            if ((ret = deinvert_buffer(s, src, size)) < 0) {
-                av_free(zbuf);
-                return ret;
-            }
-            ssrc = src = s->deinvert_buf;
-        }
-        ret = tiff_uncompress(zbuf, &outlen, src, size);
-        if (ret != Z_OK) {
-            av_log(s->avctx, AV_LOG_ERROR,
-                   "Uncompressing failed (%lu of %lu) with error %d\n", outlen,
-                   (unsigned long)width * lines, ret);
-            av_free(zbuf);
-            return AVERROR_UNKNOWN;
-        }
-        src = zbuf;
-        for (line = 0; line < lines; line++) {
-            if(s->bpp < 8 && s->avctx->pix_fmt == AV_PIX_FMT_PAL8) {
-                horizontal_fill(s->bpp, dst, 1, src, 0, width, 0);
-            }else{
-                memcpy(dst, src, width);
-            }
-            dst += stride;
-            src += width;
-        }
-        av_free(zbuf);
-        return 0;
-    }
+#if CONFIG_ZLIB
+        return tiff_unpack_zlib(s, dst, stride, src, size, width, lines);
+#else
+        av_log(s->avctx, AV_LOG_ERROR,
+               "zlib support not enabled, "
+               "deflate compression not supported\n");
+        return AVERROR(ENOSYS);
 #endif
+    }
     if (s->compr == TIFF_LZW) {
         if (s->fill_order) {
             if ((ret = deinvert_buffer(s, src, size)) < 0)
@@ -498,43 +547,7 @@ static int tiff_unpack_strip(TiffContext *s, uint8_t *dst, int stride,
     if (s->compr == TIFF_CCITT_RLE ||
         s->compr == TIFF_G3        ||
         s->compr == TIFF_G4) {
-        int i, ret = 0;
-        uint8_t *src2 = av_malloc((unsigned)size +
-                                  FF_INPUT_BUFFER_PADDING_SIZE);
-
-        if (!src2) {
-            av_log(s->avctx, AV_LOG_ERROR,
-                   "Error allocating temporary buffer\n");
-            return AVERROR(ENOMEM);
-        }
-        if (s->fax_opts & 2) {
-            av_log(s->avctx, AV_LOG_ERROR,
-                   "Uncompressed fax mode is not supported (yet)\n");
-            av_free(src2);
-            return AVERROR_INVALIDDATA;
-        }
-        if (!s->fill_order) {
-            memcpy(src2, src, size);
-        } else {
-            for (i = 0; i < size; i++)
-                src2[i] = ff_reverse[src[i]];
-        }
-        memset(src2 + size, 0, FF_INPUT_BUFFER_PADDING_SIZE);
-        switch (s->compr) {
-        case TIFF_CCITT_RLE:
-        case TIFF_G3:
-        case TIFF_G4:
-            ret = ff_ccitt_unpack(s->avctx, src2, size, dst, lines, stride,
-                                  s->compr, s->fax_opts);
-            break;
-        }
-        if (s->bpp < 8 && s->avctx->pix_fmt == AV_PIX_FMT_PAL8)
-            for (line = 0; line < lines; line++) {
-                horizontal_fill(s->bpp, dst, 1, dst, 0, width, 0);
-                dst += stride;
-            }
-        av_free(src2);
-        return ret;
+        return tiff_unpack_fax(s, dst, stride, src, size, width, lines);
     }
     for (line = 0; line < lines; line++) {
         if (src - ssrc > size) {
@@ -564,13 +577,10 @@ static int tiff_unpack_strip(TiffContext *s, uint8_t *dst, int stride,
                 code = s->fill_order ? (int8_t) ff_reverse[*src++]: (int8_t) *src++;
                 if (code >= 0) {
                     code++;
-                    if (pixels + code > width) {
+                    if (pixels + code > width ||
+                        ssrc + size - src < code) {
                         av_log(s->avctx, AV_LOG_ERROR,
                                "Copy went out of bounds\n");
-                        return AVERROR_INVALIDDATA;
-                    }
-                    if (ssrc + size - src < code) {
-                        av_log(s->avctx, AV_LOG_ERROR, "Read went out of bounds\n");
                         return AVERROR_INVALIDDATA;
                     }
                     horizontal_fill(s->bpp * (s->avctx->pix_fmt == AV_PIX_FMT_PAL8),
@@ -804,8 +814,7 @@ static int tiff_decode_tag(TiffContext *s, AVFrame *frame)
 #endif
         case TIFF_JPEG:
         case TIFF_NEWJPEG:
-            av_log(s->avctx, AV_LOG_ERROR,
-                   "JPEG compression is not supported\n");
+            avpriv_report_missing_feature(s->avctx, "JPEG compression");
             return AVERROR_PATCHWELCOME;
         default:
             av_log(s->avctx, AV_LOG_ERROR, "Unknown compression method %i\n",
@@ -1049,8 +1058,12 @@ static int tiff_decode_tag(TiffContext *s, AVFrame *frame)
         ADD_METADATA(count, "software", NULL);
         break;
     default:
-        av_log(s->avctx, AV_LOG_DEBUG, "Unknown or unsupported tag %d/0X%0X\n",
-               tag, tag);
+        if (s->avctx->err_recognition & AV_EF_EXPLODE) {
+            av_log(s->avctx, AV_LOG_ERROR,
+                   "Unknown or unsupported tag %d/0X%0X\n",
+                   tag, tag);
+            return AVERROR_INVALIDDATA;
+        }
     }
     bytestream2_seek(&s->gb, start, SEEK_SET);
     return 0;
@@ -1180,9 +1193,12 @@ static int decode_frame(AVCodecContext *avctx,
             av_log(avctx, AV_LOG_ERROR, "Invalid strip size/offset\n");
             return AVERROR_INVALIDDATA;
         }
-        if (tiff_unpack_strip(s, dst, stride, avpkt->data + soff, ssize,
-                              FFMIN(s->rps, s->height - i)) < 0)
+        if ((ret = tiff_unpack_strip(s, dst, stride, avpkt->data + soff, ssize,
+                                     FFMIN(s->rps, s->height - i))) < 0) {
+            if (avctx->err_recognition & AV_EF_EXPLODE)
+                return ret;
             break;
+        }
         dst += s->rps * stride;
     }
     if (s->predictor == 2) {
