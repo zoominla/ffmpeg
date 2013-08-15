@@ -294,7 +294,7 @@ dshow_cycle_devices(AVFormatContext *avctx, ICreateDevEnum *devenum,
         buf = dup_wchar_to_utf8(var.bstrVal);
 
         if (pfilter) {
-            if (strcmp(device_name, buf))
+            if (!strstr(device_name, buf)/*strcmp(device_name, buf)*/)
                 goto fail1;
 
             if (!skip--)
