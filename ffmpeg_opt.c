@@ -84,7 +84,7 @@ int print_stats       = -1;
 int qp_hist           = 0;
 int stdin_interaction = 1;
 int frame_bits_per_raw_sample = 0;
-
+int video_first_notkey_discard = 0;
 
 static int intra_only         = 0;
 static int file_overwrite     = 0;
@@ -1645,7 +1645,7 @@ static int open_output_file(OptionsContext *o, const char *filename)
     }
 
 	// Comment out 'ffm' processing, it's not compatible with filter_complex.
-    /*if (!strcmp(file_oformat->name, "ffm") &&
+    if (!strcmp(file_oformat->name, "ffm") &&
         av_strstart(filename, "http:", NULL)) {
         int err = parse_option(o, "metadata", "creation_time=now", options);
         if (err < 0) {
@@ -1682,7 +1682,7 @@ static int open_output_file(OptionsContext *o, const char *filename)
                 exit_program(1);
             }
         }
-    } else*/ if (!o->nb_stream_maps) {
+    } else if (!o->nb_stream_maps) {
         char *subtitle_codec_name = NULL;
         /* pick the "best" stream of each type */
 
@@ -2583,6 +2583,9 @@ const OptionDef options[] = {
         "force format", "fmt" },
     { "y",              OPT_BOOL,                                    {              &file_overwrite },
         "overwrite output files" },
+    { "discard_first_not_key",     OPT_BOOL,                         {              &video_first_notkey_discard },
+        "discard packets before first video key frame" },
+        
     { "n",              OPT_BOOL,                                    {              &no_file_overwrite },
         "do not overwrite output files" },
     { "c",              HAS_ARG | OPT_STRING | OPT_SPEC |

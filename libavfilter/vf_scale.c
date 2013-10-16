@@ -90,6 +90,8 @@ typedef struct {
     char *w_expr;               ///< width  expression string
     char *h_expr;               ///< height expression string
     char *flags_str;
+
+	int size_round;				///< round size to multiple of the number
 } ScaleContext;
 
 static av_cold int init(AVFilterContext *ctx)
@@ -237,10 +239,18 @@ static int config_props(AVFilterLink *outlink)
         w = inlink->w;
     if (!(h = scale->h))
         h = inlink->h;
-    if (w == -1)
+    if (w == -1) {
         w = av_rescale(h, inlink->w, inlink->h);
-    if (h == -1)
+		if(scale->size_round > 0) {
+			w -= w%scale->size_round;
+		}
+    }
+    if (h == -1) {
         h = av_rescale(w, inlink->h, inlink->w);
+		if(scale->size_round > 0) {
+			h -= h%scale->size_round;
+		}
+    }
 
     if (w > INT_MAX || h > INT_MAX ||
         (h * inlink->w) > INT_MAX  ||
@@ -398,6 +408,7 @@ static const AVOption scale_options[] = {
     { "interl", "set interlacing", OFFSET(interlaced), AV_OPT_TYPE_INT, {.i64 = 0 }, -1, 1, FLAGS },
     { "size",   "set video size",          OFFSET(size_str), AV_OPT_TYPE_STRING, {.str = NULL}, 0, FLAGS },
     { "s",      "set video size",          OFFSET(size_str), AV_OPT_TYPE_STRING, {.str = NULL}, 0, FLAGS },
+    { "round", "Round size number", OFFSET(size_round), AV_OPT_TYPE_INT, {.i64 = 0 }, 0, 8, FLAGS },
     { NULL },
 };
 

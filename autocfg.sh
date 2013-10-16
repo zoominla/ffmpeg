@@ -141,5 +141,4 @@ if test $_target = lite; then
 elif test $_target = show; then
     _config=$_config_show 
 fi
-_config+=""
 ./$_config

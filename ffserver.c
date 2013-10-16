@@ -2438,6 +2438,9 @@ static int http_prepare_data(HTTPContext *c)
                     if (pkt.pts != AV_NOPTS_VALUE)
                         pkt.pts = av_rescale_q(pkt.pts, ist->time_base, ost->time_base);
                     pkt.duration = av_rescale_q(pkt.duration, ist->time_base, ost->time_base);
+					if((pkt.flags & AV_PKT_FLAG_KEY) && (ist->codec->codec_type == AVMEDIA_TYPE_VIDEO)) {
+						http_log("=============Video Key frame==============");
+					}
                     if (av_write_frame(ctx, &pkt) < 0) {
                         http_log("Error writing frame to output\n");
                         c->state = HTTPSTATE_SEND_DATA_TRAILER;

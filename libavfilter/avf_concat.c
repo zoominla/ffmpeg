@@ -254,8 +254,8 @@ static int send_silence(AVFilterContext *ctx, unsigned in_no, unsigned out_no,
     int64_t base_pts = cat->in[in_no].pts + cat->delta_ts - seg_delta;
     int64_t nb_samples, sent = 0;
     int frame_nb_samples, ret;
-    AVRational rate_tb = { 1, ctx->inputs[in_no]->sample_rate };
     AVFrame *buf;
+    AVRational rate_tb = { 1, ctx->inputs[in_no]->sample_rate };
     int nb_channels = av_get_channel_layout_nb_channels(outlink->channel_layout);
 
     if (!rate_tb.den)

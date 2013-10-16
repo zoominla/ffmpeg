@@ -129,6 +129,10 @@ static int nb_frames_dup = 0;
 static int nb_frames_drop = 0;
 static int64_t decode_error_stat[2];
 
+static int saw_first_video_key_frame = 0;
+static int saw_first_key_packet = 0;
+static double last_packet_time = -1; 	// time is seconds
+
 static int current_time;
 AVIOContext *progress_avio = NULL;
 
@@ -676,7 +680,7 @@ static void do_audio_out(AVFormatContext *s, OutputStream *ost,
     AVCodecContext *enc = ost->st->codec;
     AVPacket pkt;
     int got_packet = 0;
-
+	
     av_init_packet(&pkt);
     pkt.data = NULL;
     pkt.size = 0;
@@ -875,6 +879,7 @@ static void do_video_out(AVFormatContext *s,
         /* raw pictures are written as AVPicture structure to
            avoid any copies. We support temporarily the older
            method. */
+        
         enc->coded_frame->interlaced_frame = in_picture->interlaced_frame;
         enc->coded_frame->top_field_first  = in_picture->top_field_first;
         if (enc->coded_frame->interlaced_frame)
@@ -885,7 +890,7 @@ static void do_video_out(AVFormatContext *s,
         pkt.size   =  sizeof(AVPicture);
         pkt.pts    = av_rescale_q(in_picture->pts, enc->time_base, ost->st->time_base);
         pkt.flags |= AV_PKT_FLAG_KEY;
-
+		
         video_size += pkt.size;
         write_frame(s, &pkt, ost);
     } else {
@@ -1612,7 +1617,8 @@ static int decode_audio(InputStream *ist, AVPacket *pkt, int *got_output)
         decoded_frame->pts = av_rescale_delta(decoded_frame_tb, decoded_frame->pts,
                                               (AVRational){1, ist->st->codec->sample_rate}, decoded_frame->nb_samples, &ist->filter_in_rescale_delta_last,
                                               (AVRational){1, ist->st->codec->sample_rate});
-    for (i = 0; i < ist->nb_filters; i++) {
+
+	for (i = 0; i < ist->nb_filters; i++) {
         if (i < ist->nb_filters - 1) {
             f = ist->filter_frame;
             err = av_frame_ref(f, decoded_frame);
@@ -1627,8 +1633,8 @@ static int decode_audio(InputStream *ist, AVPacket *pkt, int *got_output)
         if (err < 0)
             break;
     }
-    decoded_frame->pts = AV_NOPTS_VALUE;
 
+	decoded_frame->pts = AV_NOPTS_VALUE;
     av_frame_unref(ist->filter_frame);
     av_frame_unref(decoded_frame);
     return err < 0 ? err : ret;
@@ -1668,6 +1674,7 @@ static int decode_video(InputStream *ist, AVPacket *pkt, int *got_output)
         }
         return ret;
     }
+
 
     if(ist->top_field_first>=0)
         decoded_frame->top_field_first = ist->top_field_first;
@@ -2892,6 +2899,7 @@ static int process_input(int file_index)
         ifile->eagain = 1;
         return ret;
     }
+
     if (ret < 0) {
         if (ret != AVERROR_EOF) {
             print_error(is->filename, ret);
@@ -2935,6 +2943,39 @@ static int process_input(int file_index)
     if (ist->discard)
         goto discard_packet;
 
+	// Discard all packets before first video key frame
+	if(video_first_notkey_discard) {
+		if(ist->st->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
+			// First judge from packet key flag
+			if(!saw_first_key_packet && (pkt.flags & AV_PKT_FLAG_KEY)) {
+				saw_first_key_packet = 1;
+			}
+			if(!saw_first_key_packet) {
+				goto discard_packet;
+			}
+
+			// Second judge from frame  type
+			if(!saw_first_video_key_frame) {
+				int got_picture = 0;
+				AVPacket tmp = pkt;
+				AVFrame* decoded_frame = av_frame_alloc();
+				if (!decoded_frame)
+					return AVERROR(ENOMEM);
+				avcodec_get_frame_defaults(decoded_frame);
+				AVCodecContext* avctx = ist->st->codec;
+				ret = avctx->codec->decode(avctx, decoded_frame, &got_picture,
+										   &tmp);
+				if(decoded_frame->key_frame) {
+					saw_first_video_key_frame = 1;
+				}
+				av_frame_unref(decoded_frame);
+			}
+			if(!saw_first_video_key_frame) {
+				goto discard_packet;
+			}
+		}	
+	}
+	
     if (debug_ts) {
         av_log(NULL, AV_LOG_INFO, "demuxer -> ist_index:%d type:%s "
                "next_dts:%s next_dts_time:%s next_pts:%s next_pts_time:%s pkt_pts:%s pkt_pts_time:%s pkt_dts:%s pkt_dts_time:%s off:%s off_time:%s\n",
@@ -2946,7 +2987,7 @@ static int process_input(int file_index)
                av_ts2str(input_files[ist->file_index]->ts_offset),
                av_ts2timestr(input_files[ist->file_index]->ts_offset, &AV_TIME_BASE_Q));
     }
-
+	
     if(!ist->wrap_correction_done && is->start_time != AV_NOPTS_VALUE && ist->st->pts_wrap_bits < 64){
         int64_t stime, stime2;
         // Correcting starttime based on the enabled streams
@@ -3048,7 +3089,7 @@ static int process_input(int file_index)
 
     if (pkt.dts != AV_NOPTS_VALUE)
         ifile->last_ts = av_rescale_q(pkt.dts, ist->st->time_base, AV_TIME_BASE_Q);
-
+	
     if (debug_ts) {
         av_log(NULL, AV_LOG_INFO, "demuxer+ffmpeg -> ist_index:%d type:%s pkt_pts:%s pkt_pts_time:%s pkt_dts:%s pkt_dts_time:%s off:%s off_time:%s\n",
                ifile->ist_index + pkt.stream_index, av_get_media_type_string(ist->st->codec->codec_type),
@@ -3288,6 +3329,7 @@ static int transcode(void)
             }
         }
     }
+
     return ret;
 }
 

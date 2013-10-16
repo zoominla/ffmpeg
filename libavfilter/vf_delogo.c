@@ -164,8 +164,8 @@ static const AVOption delogo_options[]= {
     { "band", "set delogo area band size", OFFSET(band), AV_OPT_TYPE_INT, { .i64 =  4 },  1, INT_MAX, FLAGS },
     { "t",    "set delogo area band size", OFFSET(band), AV_OPT_TYPE_INT, { .i64 =  4 },  1, INT_MAX, FLAGS },
     { "show", "show delogo area",          OFFSET(show), AV_OPT_TYPE_INT, { .i64 =  0 },  0, 1,       FLAGS },
-    {"start", "set start time",           OFFSET(startSec), AV_OPT_TYPE_DOUBLE, {.dbl =  -1.0}, -1.0, INT_MAX, FLAGS},
-	{"end",  "set end time", 		      OFFSET(endSec), AV_OPT_TYPE_DOUBLE, {.dbl =	-1.0}, -1.0, INT_MAX, FLAGS},
+    {"start", "set start time",           OFFSET(startSec), AV_OPT_TYPE_FLOAT, {.dbl =  -1.0}, -1.0, INT_MAX, FLAGS},
+	{"end",  "set end time", 		      OFFSET(endSec), AV_OPT_TYPE_FLOAT, {.dbl =	-1.0}, -1.0, INT_MAX, FLAGS},
 	{ NULL },
 };
 
@@ -222,7 +222,20 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *in)
     AVRational sar;
     int64_t curPts = in->pts;
 
-    if (av_frame_is_writable(in)) {
+	// Skip time window that no need to delogo
+	int bSkipCurFrame = 0;
+	if(curPts != AV_NOPTS_VALUE) {
+		double curTime = curPts * av_q2d(inlink->time_base);
+		av_log(s, AV_LOG_VERBOSE, "=======pts:%"PRId64"===CurTime:%1.3f\n", curPts, curTime);
+		if( (s->startSec < -0.1f && s->endSec > -0.1f) ||
+			(s->startSec > -0.1f && curTime < s->startSec) ||
+			(s->endSec > -0.1f && curTime > s->endSec)) {
+			//No need to delogo beyond the time window, skip
+			bSkipCurFrame = 1;
+		}
+	}
+
+    if (av_frame_is_writable(in) || bSkipCurFrame) {
         direct = 1;
         out = in;
     } else {
@@ -235,22 +248,14 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *in)
         av_frame_copy_props(out, in);
     }
 
+	if(bSkipCurFrame) {
+		goto delogo_final;
+	}
+	
     sar = in->sample_aspect_ratio;
     /* Assume square pixels if SAR is unknown */
     if (!sar.num)
         sar.num = sar.den = 1;
-
-	// Skip time window that no need to delogo
-	if(curPts != AV_NOPTS_VALUE) {
-		double curTime = curPts * av_q2d(inlink->time_base);
-		av_log(s, AV_LOG_VERBOSE, "=======pts:%"PRId64"===CurTime:%1.3f\n", curPts, curTime);
-		if( (s->startSec < -0.1f && s->endSec > -0.1f) ||
-			(s->startSec > -0.1f && curTime < s->startSec) ||
-			(s->endSec > -0.1f && curTime > s->endSec)) {
-			/* No need to delogo beyond the time window*/
-			goto delogo_final;
-		}
-	}
 	
     for (plane = 0; plane < 4 && in->data[plane] && in->linesize[plane]; plane++) {
         int hsub = plane == 1 || plane == 2 ? hsub0 : 0;

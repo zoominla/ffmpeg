@@ -1568,7 +1568,7 @@ static av_always_inline int process_frame(WriterContext *w,
             show_frame(w, frame, fmt_ctx->streams[pkt->stream_index], fmt_ctx);
 		
 		if(detect_interlace_frames > 0 && dec_ctx->codec_type == AVMEDIA_TYPE_VIDEO) {
-			interlaced_video = frame->interlaced_frame;
+			if(!interlaced_video) interlaced_video = frame->interlaced_frame;
 			field_top_first = frame->top_field_first;
 			video_frame_counter++;
 			av_log(NULL, AV_LOG_ERROR, "Detect video frames:%d.\n", video_frame_counter);
