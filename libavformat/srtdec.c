@@ -24,10 +24,6 @@
 #include "subtitles.h"
 #include "libavutil/bprint.h"
 #include "libavutil/intreadwrite.h"
-static inline int is_eol(char c)
-{
-    return c == '\r' || c == '\n';
-}
 
 typedef struct {
     FFDemuxSubtitlesQueue q;
@@ -41,15 +37,13 @@ static int srt_probe(AVProbeData *p)
     if (AV_RB24(ptr) == 0xEFBBBF)
         ptr += 3;  /* skip UTF-8 BOM */
 
-	while(*ptr && is_eol(*ptr)) {	/* Remove leading empty line*/
-		ptr++;
-	}
-	
+    while (*ptr == '\r' || *ptr == '\n')
+        ptr++;
     for (i=0; i<2; i++) {	/* Relax probe standard of srt*/
         if (num < 50 /*num == i*/ && sscanf(ptr, "%*d:%*2d:%*2d%*1[,.]%*3d --> %*d:%*2d:%*2d%*1[,.]%3d", &v) == 1)
             return AVPROBE_SCORE_MAX;
         num = atoi(ptr);
-        ptr += strcspn(ptr, "\n") + 1;
+        ptr += ff_subtitles_next_line(ptr);
     }
     return 0;
 }
@@ -70,12 +64,10 @@ static int64_t get_pts(const char **buf, int *duration,
             int64_t start = (hh1*3600LL + mm1*60LL + ss1) * 1000LL + ms1;
             int64_t end   = (hh2*3600LL + mm2*60LL + ss2) * 1000LL + ms2;
             *duration = end - start;
-            *buf += strcspn(*buf, "\n");
-            *buf += !!**buf;
+            *buf += ff_subtitles_next_line(*buf);
             return start;
         }
-        *buf += strcspn(*buf, "\n");
-        *buf += !!**buf;
+        *buf += ff_subtitles_next_line(*buf);
     }
     return AV_NOPTS_VALUE;
 }

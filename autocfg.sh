@@ -15,6 +15,35 @@ test "$1" && _target="$1"
  # --enable-encoder=libx264 \
  # --enable-encoder=libfdk_aac \
  
+_config_debug="configure \
+  --enable-debug \
+  --enable-gpl \
+  --enable-nonfree \
+  --enable-version3 \
+  --enable-static \
+  --enable-pthreads \
+  --enable-memalign-hack \
+  --enable-libopencore-amrnb --enable-libopencore-amrwb \
+  --enable-libx264 --enable-libfdk-aac \
+  --enable-runtime-cpudetect \
+  --enable-libass \
+  --enable-libfreetype \
+  --disable-devices \
+  --enable-indev=dshow \
+  --disable-doc \
+  --disable-shared \
+  --disable-ffserver \
+  --disable-w32threads \
+  --extra-cflags=-U__STRICT_ANSI__ \
+  --extra-cflags=-I/mingw/include \
+  --extra-libs="-Wl,--enable-auto-import" \
+  --extra-libs=-L/mingw/lib \
+  --extra-libs=-lenca \
+  --extra-libs=-liconv \
+  --extra-libs=-lexpat \
+  --extra-libs=-lfribidi \
+  --prefix=/usr/local/ffmpeg_transcli"
+  
 _config_transcli="configure \
   --enable-gpl \
   --enable-nonfree \
@@ -140,5 +169,7 @@ if test $_target = lite; then
 	_config=$_config_lite
 elif test $_target = show; then
     _config=$_config_show 
+elif test $_target = debug; then
+    _config=$_config_debug
 fi
 ./$_config
