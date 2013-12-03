@@ -17,6 +17,7 @@ test "$1" && _target="$1"
  
 _config_debug="configure \
   --enable-debug \
+  --disable-optimizations \
   --enable-gpl \
   --enable-nonfree \
   --enable-version3 \
