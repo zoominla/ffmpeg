@@ -193,7 +193,11 @@ static long mpegps_psm_parse(MpegDemuxContext *m, AVIOContext *pb)
     /* skip program_stream_info */
     avio_skip(pb, ps_info_length);
     es_map_length = avio_rb16(pb);
-
+	
+	/*Work around for misdetecting aac in MPEG-PS(zoominla)*/
+    /* Ignore es_map_length, trust psm_length */
+    es_map_length = psm_length - ps_info_length - 10;
+	
     /* at least one es available? */
     while (es_map_length >= 4){
         unsigned char type      = avio_r8(pb);
