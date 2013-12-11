@@ -71,7 +71,9 @@ _config_transcli="configure \
   --extra-libs=-liconv \
   --extra-libs=-lexpat \
   --extra-libs=-lfribidi \
+  --extra-libs=-ldbghelp \
   --prefix=/usr/local/ffmpeg_transcli"
+#--disable-stripping \
 
 #--disable-protocols \
 #

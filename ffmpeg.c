@@ -3440,6 +3440,67 @@ static void log_callback_null(void *ptr, int level, const char *fmt, va_list vl)
 {
 }
 
+#ifdef _WIN32
+#include <DbgHelp.h>
+
+static int GetAppDir(char *dir, int size)
+{
+    if (dir == NULL || size <= 0) return 0;
+
+	if (GetModuleFileName(GetModuleHandle(NULL), dir, size) == 0) return 0;
+
+	char* p = strrchr(dir, '\\');
+	if (p) *p = 0;
+
+    return strlen(dir);
+}
+
+static void CreateDumpFile(const char* dumpFilePathName, EXCEPTION_POINTERS *pException)  
+{  
+    // 创建Dump文件  
+    HANDLE hDumpFile = CreateFile(dumpFilePathName, GENERIC_WRITE, 0, NULL,
+		CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);  
+  
+    // Dump信息  
+    MINIDUMP_EXCEPTION_INFORMATION dumpInfo;  
+    dumpInfo.ExceptionPointers = pException;  
+    dumpInfo.ThreadId = GetCurrentThreadId();  
+    dumpInfo.ClientPointers = TRUE;  
+  
+    // 写入Dump文件内容  
+    MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), hDumpFile, 
+		MiniDumpNormal, &dumpInfo, NULL, NULL);  
+  
+    CloseHandle(hDumpFile);  
+}  
+
+static LONG ApplicationCrashHandler(EXCEPTION_POINTERS *pException)  
+{     
+	// Get mini dump file path with timestamp
+	#define PATH_MAX_LEN 260
+	char cuPath[PATH_MAX_LEN] = {0};
+
+    // Get timestamp
+	time_t timep;
+	time(&timep);
+	char* curTime = ctime(&timep);
+	*(curTime+strlen(curTime)-1) = '\0';	// Remove newline char
+	for(char* p=curTime; p && *p; ++p) {
+		if((*p) == ':') {
+			*p = '-';
+		}
+	}
+
+	if (GetAppDir(cuPath, PATH_MAX_LEN) > 0) {
+		av_strlcatf(cuPath, PATH_MAX_LEN, "\\ffmpeg_%s.dmp", curTime); 
+		CreateDumpFile(cuPath, pException);
+	}
+
+	#undef PATH_MAX_LEN
+    return EXCEPTION_EXECUTE_HANDLER;  
+}  
+#endif
+
 int main(int argc, char **argv)
 {
     int ret;
@@ -3449,9 +3510,12 @@ int main(int argc, char **argv)
 
     setvbuf(stderr,NULL,_IONBF,0); /* win32 runtime needs this */
 
-	// Hide console window
+	
 #ifdef _WIN32
+	// Hide console window
 	//ShowWindow(GetConsoleWindow(), SW_HIDE);
+	// Exception processing
+	SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)ApplicationCrashHandler);
 #endif
 
     av_log_set_flags(AV_LOG_SKIP_REPEATED);
