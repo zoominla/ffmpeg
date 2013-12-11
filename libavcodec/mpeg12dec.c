@@ -2427,13 +2427,27 @@ static int mpeg_decode_frame(AVCodecContext *avctx,
     if (buf_size == 0 || (buf_size == 4 && AV_RB32(buf) == SEQ_END_CODE)) {
         /* special case for last picture */
         if (s2->low_delay == 0 && s2->next_picture_ptr) {
-            int ret = av_frame_ref(picture, &s2->next_picture_ptr->f);
-            if (ret < 0)
-                return ret;
+            /* detect last frame mb error */
+            int has_mb_error = 0;
+            for (int i = 0; i < s2->er.mb_num; i++) {
+                const int mb_xy = s2->er.mb_index2xy[i];
+                int error = s2->er.error_status_table[mb_xy];
+                if (error & ER_MB_ERROR) {
+                    has_mb_error = 1;
+                    break;
+                }
+            }
 
-            s2->next_picture_ptr = NULL;
+            /* fix last frame distortion when mb error accurs */
+            if(!has_mb_error) {
+                int ret = av_frame_ref(picture, &s2->next_picture_ptr->f);
+                if (ret < 0)
+                    return ret;
 
-            *got_output = 1;
+                s2->next_picture_ptr = NULL;
+
+                *got_output = 1;
+            }
         }
         return buf_size;
     }

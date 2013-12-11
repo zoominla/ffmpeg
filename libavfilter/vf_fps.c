@@ -213,6 +213,12 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *buf)
         return ret;
     }
 
+    // Work around for timestamp sudden change(prevent dup much more frames which result in
+    // out of memory error)
+    if(delta > 60) {
+        delta = 1;
+    }
+
     /* can output >= 1 frames */
     for (i = 0; i < delta; i++) {
         AVFrame *buf_out;
