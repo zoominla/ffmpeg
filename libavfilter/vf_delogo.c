@@ -231,7 +231,9 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *in)
 			(s->startSec > -0.1f && curTime < s->startSec) ||
 			(s->endSec > -0.1f && curTime > s->endSec)) {
 			//No need to delogo beyond the time window, skip
-			bSkipCurFrame = 1;
+			if(curTime > 0) {	// If first time is < 0, should not skip
+				bSkipCurFrame = 1;
+			}
 		}
 	}
 

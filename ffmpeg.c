@@ -793,6 +793,8 @@ static void do_subtitle_out(AVFormatContext *s,
     }
 }
 
+static int total_ignore_dup_frames_num = 0;
+
 static void do_video_out(AVFormatContext *s,
                          OutputStream *ost,
                          AVFrame *in_picture)
@@ -844,7 +846,7 @@ static void do_video_out(AVFormatContext *s,
         av_assert0(0);
     }
 
-    nb_frames = FFMIN(nb_frames, ost->max_frames - ost->frame_number);
+    nb_frames = FFMIN(nb_frames, ost->max_frames - ost->frame_number - total_ignore_dup_frames_num);
     if (nb_frames == 0) {
         nb_frames_drop++;
         av_log(NULL, AV_LOG_VERBOSE, "*** drop!\n");
@@ -855,6 +857,13 @@ static void do_video_out(AVFormatContext *s,
             nb_frames_drop++;
             return;
         }
+		// Work around for timestamp sudden change(prevent dup much more frames which result in
+        // out of memory error)
+        //av_log(NULL, AV_LOG_ERROR, "===%d frame duplication.\n", nb_frames - 1);
+		if(nb_frames > av_q2d(ost->frame_rate)*3) {
+			total_ignore_dup_frames_num += nb_frames - 1;
+			nb_frames = 1;
+		}
         nb_frames_dup += nb_frames - 1;
         av_log(NULL, AV_LOG_VERBOSE, "*** %d dup!\n", nb_frames - 1);
     }

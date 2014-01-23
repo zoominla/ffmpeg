@@ -4266,7 +4266,6 @@ static void er_add_slice(H264Context *h, int startx, int starty,
 {
     if (CONFIG_ERROR_RESILIENCE) {
         ERContext *er = &h->er;
-
         er->ref_count = h->ref_count[0];
         ff_er_add_slice(er, startx, starty, endx, endy, status);
     }
@@ -4883,7 +4882,7 @@ static int decode_frame(AVCodecContext *avctx, void *data,
     Picture *out;
     int i, out_idx;
     int ret;
-
+	
     h->flags  = avctx->flags;
 
     /* end of stream, output what is still in the buffers */
@@ -4909,6 +4908,7 @@ static int decode_frame(AVCodecContext *avctx, void *data,
         for (i = out_idx; h->delayed_pic[i]; i++)
             h->delayed_pic[i] = h->delayed_pic[i + 1];
 
+		/* Will to fix last frame distortion when mb error accurs */		
         if (out) {
             out->reference &= ~DELAYED_PIC_REF;
             ret = output_frame(h, pict, out);
