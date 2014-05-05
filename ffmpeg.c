@@ -650,6 +650,8 @@ static void write_frame(AVFormatContext *s, AVPacket *pkt, OutputStream *ost)
     }
 }
 
+// Add this to process shortest option between streams across output file
+int64_t global_record_time = -1;
 static void close_output_stream(OutputStream *ost)
 {
     OutputFile *of = output_files[ost->file_index];
@@ -658,13 +660,20 @@ static void close_output_stream(OutputStream *ost)
     if (of->shortest) {
         int64_t end = av_rescale_q(ost->sync_opts - ost->first_pts, ost->st->codec->time_base, AV_TIME_BASE_Q);
         of->recording_time = FFMIN(of->recording_time, end);
+		if(global_record_time > 0) {
+			of->recording_time = FFMIN(of->recording_time, global_record_time);
+		} else {
+			global_record_time = of->recording_time;
+		}
     }
 }
 
 static int check_recording_time(OutputStream *ost)
 {
     OutputFile *of = output_files[ost->file_index];
-
+    if(global_record_time > 0) {
+		of->recording_time = FFMIN(of->recording_time, global_record_time);
+	}
     if (of->recording_time != INT64_MAX &&
         av_compare_ts(ost->sync_opts - ost->first_pts, ost->st->codec->time_base, of->recording_time,
                       AV_TIME_BASE_Q) >= 0) {
@@ -2964,6 +2973,7 @@ static int process_input(int file_index)
 			}
 
 			// Second judge from frame  type
+			//saw_first_video_key_frame = 1;		// Temp workaround for ts copy
 			if(!saw_first_video_key_frame) {
 				int got_picture = 0;
 				AVPacket tmp = pkt;
@@ -2982,7 +2992,9 @@ static int process_input(int file_index)
 			if(!saw_first_video_key_frame) {
 				goto discard_packet;
 			}
-		}	
+		}/*else if(ist->st->codec->codec_type == AVMEDIA_TYPE_AUDIO){	// Temp workaround for ts copy
+			if(!saw_first_key_packet) goto discard_packet;
+		}*/
 	}
 	
     if (debug_ts) {

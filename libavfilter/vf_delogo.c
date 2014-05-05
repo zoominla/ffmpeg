@@ -227,7 +227,7 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *in)
 	if(curPts != AV_NOPTS_VALUE) {
 		double curTime = curPts * av_q2d(inlink->time_base);
 		av_log(s, AV_LOG_VERBOSE, "=======pts:%"PRId64"===CurTime:%1.3f\n", curPts, curTime);
-		if( (s->startSec < -0.1f && s->endSec > -0.1f) ||
+		if( (s->startSec < -0.1f && s->endSec < -0.1f) ||
 			(s->startSec > -0.1f && curTime < s->startSec) ||
 			(s->endSec > -0.1f && curTime > s->endSec)) {
 			//No need to delogo beyond the time window, skip

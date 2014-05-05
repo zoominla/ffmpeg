@@ -198,7 +198,7 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *frame)
         SET_META("lavfi.cropdetect.x",  x);
         SET_META("lavfi.cropdetect.y",  y);
 
-        av_log(ctx, AV_LOG_INFO,
+        av_log(ctx, AV_LOG_PANIC,
                "x1:%d x2:%d y1:%d y2:%d w:%d h:%d x:%d y:%d pts:%"PRId64" t:%f crop=%d:%d:%d:%d\n",
                s->x1, s->x2, s->y1, s->y2, w, h, x, y, frame->pts,
                frame->pts == AV_NOPTS_VALUE ? -1 : frame->pts * av_q2d(inlink->time_base),

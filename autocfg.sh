@@ -57,23 +57,25 @@ _config_transcli="configure \
   --enable-runtime-cpudetect \
   --enable-libass \
   --enable-libfreetype \
-  --disable-devices \
-  --enable-indev=dshow \
   --disable-doc \
   --disable-static \
   --disable-ffserver \
   --disable-w32threads \
   --extra-cflags=-U__STRICT_ANSI__ \
-  --extra-cflags=-I/mingw/include \
   --extra-libs="-Wl,--enable-auto-import" \
-  --extra-libs=-L/mingw/lib \
   --extra-libs=-lenca \
   --extra-libs=-liconv \
   --extra-libs=-lexpat \
   --extra-libs=-lfribidi \
   --extra-libs=-ldbghelp \
-  --prefix=/usr/local/ffmpeg_transcli"
+  --prefix=$FFMPEG_PREFIX"
 #--disable-stripping \
+#--extra-cflags=-I/mingw/include \
+#  --extra-libs=-L/mingw/lib \
+#  --extra-libs=-lenca \
+#  --extra-libs=-liconv \
+#  --extra-libs=-lexpat \
+ # --extra-libs=-lfribidi \
 
 #--disable-protocols \
 #
