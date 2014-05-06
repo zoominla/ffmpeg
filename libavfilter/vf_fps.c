@@ -214,8 +214,8 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *buf)
     }
 
     // Work around for timestamp sudden change(prevent dup much more frames which result in
-    // out of memory error), limit to 3 seconds
-    if(delta > av_q2d(s->framerate)*3) {	
+    // out of memory error), limit to 6 seconds
+    if(delta > av_q2d(s->framerate)*CONPENSATE_TS_SUDDEN_CHANGE_MAX_DURATION) {	
         delta = 1;
     }
 

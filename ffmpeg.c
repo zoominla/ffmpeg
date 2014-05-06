@@ -869,7 +869,7 @@ static void do_video_out(AVFormatContext *s,
 		// Work around for timestamp sudden change(prevent dup much more frames which result in
         // out of memory error)
         //av_log(NULL, AV_LOG_ERROR, "===%d frame duplication.\n", nb_frames - 1);
-		if(nb_frames > av_q2d(ost->frame_rate)*3) {
+		if(nb_frames > av_q2d(ost->frame_rate)*CONPENSATE_TS_SUDDEN_CHANGE_MAX_DURATION) {
 			total_ignore_dup_frames_num += nb_frames - 1;
 			nb_frames = 1;
 		}
