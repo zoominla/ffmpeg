@@ -40,7 +40,7 @@ static int srt_probe(AVProbeData *p)
     while (*ptr == '\r' || *ptr == '\n')
         ptr++;
     for (i=0; i<2; i++) {
-        if ((num == i || num + 1 == i)
+        if (num < 50 /*(num == i || num + 1 == i)*/
             && sscanf(ptr, "%*d:%*2d:%*2d%*1[,.]%*3d --> %*d:%*2d:%*2d%*1[,.]%3d", &v) == 1)
             return AVPROBE_SCORE_MAX;
         num = atoi(ptr);

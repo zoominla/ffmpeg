@@ -764,5 +764,7 @@ int av_opt_query_ranges_default(AVOptionRanges **, void *obj, const char *key, i
 /**
  * @}
  */
+// Max conpensate timestamp sudden change duration is 8 seconds
+#define CONPENSATE_TS_SUDDEN_CHANGE_MAX_DURATION 8
 
 #endif /* AVUTIL_OPT_H */

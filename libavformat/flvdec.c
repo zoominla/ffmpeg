@@ -942,7 +942,7 @@ retry_duration:
             if (flv->wrong_dts)
                 dts = AV_NOPTS_VALUE;
         }
-        if (type == 0 && (!st->codec->extradata || st->codec->codec_id == AV_CODEC_ID_AAC)) {
+        if (type == 0 /*&& (!st->codec->extradata || st->codec->codec_id == AV_CODEC_ID_AAC)*/) {
             AVDictionaryEntry *t;
 
             if (st->codec->extradata) {

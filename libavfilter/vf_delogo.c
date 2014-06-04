@@ -151,6 +151,7 @@ static void apply_delogo(uint8_t *dst, int dst_linesize,
 typedef struct {
     const AVClass *class;
     int x, y, w, h, band, show;
+	float startSec, endSec;
 }  DelogoContext;
 
 #define OFFSET(x) offsetof(DelogoContext, x)
@@ -164,7 +165,9 @@ static const AVOption delogo_options[]= {
     { "band", "set delogo area band size", OFFSET(band), AV_OPT_TYPE_INT, { .i64 =  4 },  1, INT_MAX, FLAGS },
     { "t",    "set delogo area band size", OFFSET(band), AV_OPT_TYPE_INT, { .i64 =  4 },  1, INT_MAX, FLAGS },
     { "show", "show delogo area",          OFFSET(show), AV_OPT_TYPE_INT, { .i64 =  0 },  0, 1,       FLAGS },
-    { NULL }
+    {"start", "set start time",           OFFSET(startSec), AV_OPT_TYPE_FLOAT, {.dbl =  -1.0}, -1.0, INT_MAX, FLAGS},
+	{"end",  "set end time", 		      OFFSET(endSec), AV_OPT_TYPE_FLOAT, {.dbl =	-1.0}, -1.0, INT_MAX, FLAGS},
+	{ NULL },
 };
 
 AVFILTER_DEFINE_CLASS(delogo);
@@ -196,8 +199,8 @@ static av_cold int init(AVFilterContext *ctx)
     CHECK_UNSET_OPT(w);
     CHECK_UNSET_OPT(h);
 
-    av_log(ctx, AV_LOG_VERBOSE, "x:%d y:%d, w:%d h:%d band:%d show:%d\n",
-           s->x, s->y, s->w, s->h, s->band, s->show);
+    av_log(ctx, AV_LOG_VERBOSE, "x:%d y:%d, w:%d h:%d band:%d show:%d start:%f end:%f\n",
+           s->x, s->y, s->w, s->h, s->band, s->show, s->startSec, s->endSec);
 
     s->w += s->band*2;
     s->h += s->band*2;
@@ -218,8 +221,24 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *in)
     int direct = 0;
     int plane;
     AVRational sar;
+    int64_t curPts = in->pts;
 
-    if (av_frame_is_writable(in)) {
+	// Skip time window that no need to delogo
+	int bSkipCurFrame = 0;
+	if(curPts != AV_NOPTS_VALUE) {
+		double curTime = curPts * av_q2d(inlink->time_base);
+		av_log(s, AV_LOG_VERBOSE, "=======pts:%"PRId64"===CurTime:%1.3f\n", curPts, curTime);
+		if( (s->startSec < -0.1f && s->endSec < -0.1f) ||
+			(s->startSec > -0.1f && curTime < s->startSec) ||
+			(s->endSec > -0.1f && curTime > s->endSec)) {
+			//No need to delogo beyond the time window, skip
+			if(curTime > 0) {	// If first time is < 0, should not skip
+				bSkipCurFrame = 1;
+			}
+		}
+	}
+
+    if (av_frame_is_writable(in) || bSkipCurFrame) {
         direct = 1;
         out = in;
     } else {
@@ -232,6 +251,10 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *in)
         av_frame_copy_props(out, in);
     }
 
+	if(bSkipCurFrame) {
+		goto delogo_final;
+	}
+	
     sar = in->sample_aspect_ratio;
     /* Assume square pixels if SAR is unknown */
     if (!sar.num)
@@ -254,6 +277,7 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *in)
                      s->show, direct);
     }
 
+    delogo_final:
     if (!direct)
         av_frame_free(&in);
 

@@ -102,7 +102,7 @@ static int append_entry(HLSContext *hls, uint64_t duration)
 
     hls->end_list = en;
 
-    if (hls->nb_entries >= hls->size) {
+    if (hls->size > 0 && hls->nb_entries >= hls->size) {
         en = hls->list;
         hls->list = en->next;
         av_free(en);

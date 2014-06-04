@@ -109,6 +109,8 @@ typedef struct {
     int in_v_chr_pos;
 
     int force_original_aspect_ratio;
+	
+	int size_round;				///< round size to multiple of the number
 } ScaleContext;
 
 static av_cold int init_dict(AVFilterContext *ctx, AVDictionary **opts)
@@ -294,10 +296,18 @@ static int config_props(AVFilterLink *outlink)
     /* Make sure that the result is divisible by the factor we determined
      * earlier. If no factor was set, it is nothing will happen as the default
      * factor is 1 */
-    if (w < 0)
+    if (w < 0) {
         w = av_rescale(h, inlink->w, inlink->h * factor_w) * factor_w;
-    if (h < 0)
+		if(scale->size_round > 0) {
+			w -= w%scale->size_round;
+		}
+	}
+    if (h < 0) {
         h = av_rescale(w, inlink->h, inlink->w * factor_h) * factor_h;
+		if(scale->size_round > 0) {
+			h -= h%scale->size_round;
+		}
+	}
 
     /* Note that force_original_aspect_ratio may overwrite the previous set
      * dimensions so that it is not divisible by the set factors anymore. */
@@ -559,6 +569,7 @@ static const AVOption scale_options[] = {
     { "disable",  NULL, 0, AV_OPT_TYPE_CONST, {.i64 = 0 }, 0, 0, FLAGS, "force_oar" },
     { "decrease", NULL, 0, AV_OPT_TYPE_CONST, {.i64 = 1 }, 0, 0, FLAGS, "force_oar" },
     { "increase", NULL, 0, AV_OPT_TYPE_CONST, {.i64 = 2 }, 0, 0, FLAGS, "force_oar" },
+	{ "round", "Round size number", OFFSET(size_round), AV_OPT_TYPE_INT, {.i64 = 0 }, 0, 8, FLAGS },
     { NULL }
 };
 

@@ -28,6 +28,7 @@
  */
 
 #include <ass/ass.h>
+#include <stdio.h>
 
 #include "config.h"
 #if CONFIG_SUBTITLES_FILTER
@@ -85,6 +86,57 @@ static void ass_log(int ass_level, const char *fmt, va_list args, void *ctx)
     av_log(ctx, level, "\n");
 }
 
+static int get_exe_dir(char* path, int strsize)
+{
+    char sLine[1024] = { 0 };
+    void* pSymbol = (void*)"";
+    FILE *fp;
+    char *pPath;
+
+    fp = fopen ("/proc/self/maps", "r");
+    if ( fp != NULL ) {
+        while (!feof (fp)) {
+            unsigned long start, end;
+            char *tmp;
+            size_t len;
+
+            if ( !fgets (sLine, sizeof (sLine), fp)) continue;
+            if ( !strstr (sLine, " r-xp ") || !strchr (sLine, '/')) continue;
+
+            /* Get rid of the newline */
+            tmp = strrchr (sLine, '\n');
+            if (tmp) *tmp = 0;
+			
+            sscanf (sLine, "%lx-%lx ", &start, &end);
+            if (pSymbol < (void *) start || pSymbol >= (void *) end) continue;
+            
+
+            /* Extract the filename; it is always an absolute path */
+            pPath = strchr (sLine, '/');
+
+            /* Get rid of "(deleted)" */
+
+            len = strlen (pPath);
+            if (len > 10 && strcmp (pPath + len - 10, " (deleted)") == 0) {
+                tmp = pPath + len - 10;
+                *tmp = 0;
+            }
+
+            strncpy( path, pPath, strsize );
+            fclose (fp);
+			/*Remove last '/' */
+			tmp = strrchr(path, '/');
+            if (tmp) *tmp = 0;
+			
+            return strlen(path);
+        }
+
+        fclose (fp);
+    }
+
+    return 0; /*failed*/
+}
+
 static av_cold int init(AVFilterContext *ctx)
 {
     AssContext *ass = ctx->priv;
@@ -107,7 +159,19 @@ static av_cold int init(AVFilterContext *ctx)
         return AVERROR(EINVAL);
     }
 
-    ass_set_fonts(ass->renderer, NULL, NULL, 1, NULL, 1);
+	char *configFile = NULL;
+	#ifndef _WIN32
+	configFile = (char*)malloc(256);
+	memset(configFile, 0, 256);
+	get_exe_dir(configFile, 256);
+	av_strlcat(configFile, "/fonts/fonts.conf", 255);
+	#endif
+	
+    ass_set_fonts(ass->renderer, NULL, NULL, 1, configFile, 1);
+	
+	#ifndef _WIN32
+	free(configFile);
+	#endif
     return 0;
 }
 

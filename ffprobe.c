@@ -72,6 +72,11 @@ static int do_show_frame_tags = 0;
 static int do_show_program_tags = 0;
 static int do_show_stream_tags = 0;
 
+static int detect_interlace_frames = 0;		// decode video frame count(to detect interlace info)
+static int interlaced_video = 0;			// 0:progressive, 1:interlaced
+static int field_top_first = 0;				// 0:bottom first, 1:top first
+static int video_frame_counter = 0;
+
 static int show_value_unit              = 0;
 static int use_value_prefix             = 0;
 static int use_byte_value_binary_prefix = 0;
@@ -1830,6 +1835,13 @@ static av_always_inline int process_frame(WriterContext *w,
                 show_frame(w, frame, fmt_ctx->streams[pkt->stream_index], fmt_ctx);
         if (is_sub)
             avsubtitle_free(&sub);
+		
+		if(detect_interlace_frames > 0 && dec_ctx->codec_type == AVMEDIA_TYPE_VIDEO) {
+			if(!interlaced_video) interlaced_video = frame->interlaced_frame;
+			field_top_first = frame->top_field_first;
+			video_frame_counter++;
+			av_log(NULL, AV_LOG_ERROR, "Detect video frames:%d.\n", video_frame_counter);
+		}
     }
     return got_frame;
 }
@@ -1863,7 +1875,9 @@ static int read_interval_packets(WriterContext *w, AVFormatContext *fmt_ctx,
 {
     AVPacket pkt, pkt1;
     AVFrame *frame = NULL;
-    int ret = 0, i = 0, frame_count = 0;
+
+	int packet_count = 0;    
+	int ret = 0, i = 0, frame_count = 0;
     int64_t start = -INT64_MAX, end = interval->end;
     int has_start = 0, has_end = interval->has_end && !interval->end_is_offset;
 
@@ -1937,12 +1951,20 @@ static int read_interval_packets(WriterContext *w, AVFormatContext *fmt_ctx,
                     show_packet(w, fmt_ctx, &pkt, i++);
                 nb_streams_packets[pkt.stream_index]++;
             }
-            if (do_read_frames) {
+            if (do_read_frames || detect_interlace_frames > 0) {
                 pkt1 = pkt;
                 while (pkt1.size && process_frame(w, fmt_ctx, frame, &pkt1) > 0);
             }
         }
         av_free_packet(&pkt);
+		
+		if(video_frame_counter >= detect_interlace_frames) {
+			break;
+		}
+
+		// In case of audio file, prevent from decoding the whole file
+		if(detect_interlace_frames > 0 && packet_count > 60) break;
+		packet_count++;
     }
     av_init_packet(&pkt);
     pkt.data = NULL;
@@ -1950,7 +1972,7 @@ static int read_interval_packets(WriterContext *w, AVFormatContext *fmt_ctx,
     //Flush remaining frames that are cached in the decoder
     for (i = 0; i < fmt_ctx->nb_streams; i++) {
         pkt.stream_index = i;
-        if (do_read_frames)
+        if (do_read_frames && detect_interlace_frames > 0)
             while (process_frame(w, fmt_ctx, frame, &pkt) > 0);
     }
 
@@ -2058,6 +2080,8 @@ static int show_stream(WriterContext *w, AVFormatContext *fmt_ctx, int stream_id
             } else {
                 print_str_opt("timecode", "N/A");
             }
+			print_int("interlaced_frame",	interlaced_video);
+        	print_int("top_field_first",    field_top_first);
             break;
 
         case AVMEDIA_TYPE_AUDIO:
@@ -2375,6 +2399,7 @@ static int probe_file(WriterContext *wctx, const char *filename)
 
     do_read_frames = do_show_frames || do_count_frames;
     do_read_packets = do_show_packets || do_count_packets;
+	if(detect_interlace_frames > 0) do_read_frames = 1;
 
     ret = open_input_file(&fmt_ctx, filename);
     if (ret < 0)
@@ -2862,6 +2887,7 @@ static const OptionDef real_options[] = {
     { "show_packets", 0, {(void*)&opt_show_packets}, "show packets info" },
     { "show_programs", 0, {(void*)&opt_show_programs}, "show programs info" },
     { "show_streams", 0, {(void*)&opt_show_streams}, "show streams info" },
+    { "detect_inter_frames", OPT_INT | HAS_ARG, {&detect_interlace_frames}, "detect video deinterlace info"},
     { "show_chapters", 0, {(void*)&opt_show_chapters}, "show chapters info" },
     { "count_frames", OPT_BOOL, {(void*)&do_count_frames}, "count the number of frames per stream" },
     { "count_packets", OPT_BOOL, {(void*)&do_count_packets}, "count the number of packets per stream" },

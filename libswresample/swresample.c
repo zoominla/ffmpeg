@@ -919,8 +919,8 @@ int64_t swr_next_pts(struct SwrContext *s, int64_t pts){
     } else {
         int64_t delta = pts - swr_get_delay(s, s->in_sample_rate * (int64_t)s->out_sample_rate) - s->outpts + s->drop_output*(int64_t)s->in_sample_rate;
         double fdelta = delta /(double)(s->in_sample_rate * (int64_t)s->out_sample_rate);
-
-        if(fabs(fdelta) > s->min_compensation) {
+		// Hack for preventing insert many empty audio(if delta is bigger than 6 seconds, no compensation)
+        if(fabs(fdelta) > s->min_compensation && fabs(fdelta) < CONPENSATE_TS_SUDDEN_CHANGE_MAX_DURATION) {
             if(s->outpts == s->firstpts || fabs(fdelta) > s->min_hard_compensation){
                 int ret;
                 if(delta > 0) ret = swr_inject_silence(s,  delta / s->out_sample_rate);

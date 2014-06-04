@@ -132,6 +132,10 @@ static int nb_frames_dup = 0;
 static int nb_frames_drop = 0;
 static int64_t decode_error_stat[2];
 
+static int saw_first_video_key_frame = 0;
+static int saw_first_key_packet = 0;
+static double last_packet_time = -1; 	// time is seconds
+
 static int current_time;
 AVIOContext *progress_avio = NULL;
 
@@ -665,6 +669,8 @@ static void write_frame(AVFormatContext *s, AVPacket *pkt, OutputStream *ost)
     }
 }
 
+// Add this to process shortest option between streams across output file
+int64_t global_record_time = -1;
 static void close_output_stream(OutputStream *ost)
 {
     OutputFile *of = output_files[ost->file_index];
@@ -673,13 +679,20 @@ static void close_output_stream(OutputStream *ost)
     if (of->shortest) {
         int64_t end = av_rescale_q(ost->sync_opts - ost->first_pts, ost->st->codec->time_base, AV_TIME_BASE_Q);
         of->recording_time = FFMIN(of->recording_time, end);
+		if(global_record_time > 0) {
+			of->recording_time = FFMIN(of->recording_time, global_record_time);
+		} else {
+			global_record_time = of->recording_time;
+		}
     }
 }
 
 static int check_recording_time(OutputStream *ost)
 {
     OutputFile *of = output_files[ost->file_index];
-
+    if(global_record_time > 0) {
+		of->recording_time = FFMIN(of->recording_time, global_record_time);
+	}
     if (of->recording_time != INT64_MAX &&
         av_compare_ts(ost->sync_opts - ost->first_pts, ost->st->codec->time_base, of->recording_time,
                       AV_TIME_BASE_Q) >= 0) {
@@ -816,6 +829,8 @@ static void do_subtitle_out(AVFormatContext *s,
     }
 }
 
+static int total_ignore_dup_frames_num = 0;
+
 static void do_video_out(AVFormatContext *s,
                          OutputStream *ost,
                          AVFrame *in_picture)
@@ -886,7 +901,7 @@ static void do_video_out(AVFormatContext *s,
         av_assert0(0);
     }
 
-    nb_frames = FFMIN(nb_frames, ost->max_frames - ost->frame_number);
+    nb_frames = FFMIN(nb_frames, ost->max_frames - ost->frame_number - total_ignore_dup_frames_num);
     if (nb_frames == 0) {
         nb_frames_drop++;
         av_log(NULL, AV_LOG_VERBOSE, "*** drop!\n");
@@ -897,6 +912,13 @@ static void do_video_out(AVFormatContext *s,
             nb_frames_drop++;
             return;
         }
+		// Work around for timestamp sudden change(prevent dup much more frames which result in
+        // out of memory error)
+        //av_log(NULL, AV_LOG_ERROR, "===%d frame duplication.\n", nb_frames - 1);
+		if(nb_frames > av_q2d(ost->frame_rate)*CONPENSATE_TS_SUDDEN_CHANGE_MAX_DURATION) {
+			total_ignore_dup_frames_num += nb_frames - 1;
+			nb_frames = 1;
+		}
         nb_frames_dup += nb_frames - 1;
         av_log(NULL, AV_LOG_VERBOSE, "*** %d dup!\n", nb_frames - 1);
     }
@@ -3171,6 +3193,42 @@ static int process_input(int file_index)
     if (ist->discard)
         goto discard_packet;
 
+	// Discard all packets before first video key frame
+	if(video_first_notkey_discard) {
+		if(ist->st->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
+			// First judge from packet key flag
+			if(!saw_first_key_packet && (pkt.flags & AV_PKT_FLAG_KEY)) {
+				saw_first_key_packet = 1;
+			}
+			if(!saw_first_key_packet) {
+				goto discard_packet;
+			}
+
+			// Second judge from frame  type
+			//saw_first_video_key_frame = 1;		// Temp workaround for ts copy
+			if(!saw_first_video_key_frame) {
+				int got_picture = 0;
+				AVPacket tmp = pkt;
+				AVFrame* decoded_frame = av_frame_alloc();
+				if (!decoded_frame)
+					return AVERROR(ENOMEM);
+				avcodec_get_frame_defaults(decoded_frame);
+				AVCodecContext* avctx = ist->st->codec;
+				ret = avctx->codec->decode(avctx, decoded_frame, &got_picture,
+										   &tmp);
+				if(decoded_frame->key_frame) {
+					saw_first_video_key_frame = 1;
+				}
+				av_frame_unref(decoded_frame);
+			}
+			if(!saw_first_video_key_frame) {
+				goto discard_packet;
+			}
+		}/*else if(ist->st->codec->codec_type == AVMEDIA_TYPE_AUDIO){	// Temp workaround for ts copy
+			if(!saw_first_key_packet) goto discard_packet;
+		}*/
+	}
+	
     if (debug_ts) {
         av_log(NULL, AV_LOG_INFO, "demuxer -> ist_index:%d type:%s "
                "next_dts:%s next_dts_time:%s next_pts:%s next_pts_time:%s pkt_pts:%s pkt_pts_time:%s pkt_dts:%s pkt_dts_time:%s off:%s off_time:%s\n",
@@ -3566,6 +3624,67 @@ static void log_callback_null(void *ptr, int level, const char *fmt, va_list vl)
 {
 }
 
+#ifdef _WIN32
+#include <DbgHelp.h>
+
+static int GetAppDir(char *dir, int size)
+{
+    if (dir == NULL || size <= 0) return 0;
+
+	if (GetModuleFileName(GetModuleHandle(NULL), dir, size) == 0) return 0;
+
+	char* p = strrchr(dir, '\\');
+	if (p) *p = 0;
+
+    return strlen(dir);
+}
+
+static void CreateDumpFile(const char* dumpFilePathName, EXCEPTION_POINTERS *pException)  
+{  
+    // 创建Dump文件  
+    HANDLE hDumpFile = CreateFile(dumpFilePathName, GENERIC_WRITE, 0, NULL,
+		CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);  
+  
+    // Dump信息  
+    MINIDUMP_EXCEPTION_INFORMATION dumpInfo;  
+    dumpInfo.ExceptionPointers = pException;  
+    dumpInfo.ThreadId = GetCurrentThreadId();  
+    dumpInfo.ClientPointers = TRUE;  
+  
+    // 写入Dump文件内容  
+    MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), hDumpFile, 
+		MiniDumpNormal, &dumpInfo, NULL, NULL);  
+  
+    CloseHandle(hDumpFile);  
+}  
+
+static LONG ApplicationCrashHandler(EXCEPTION_POINTERS *pException)  
+{     
+	// Get mini dump file path with timestamp
+	#define PATH_MAX_LEN 260
+	char cuPath[PATH_MAX_LEN] = {0};
+
+    // Get timestamp
+	time_t timep;
+	time(&timep);
+	char* curTime = ctime(&timep);
+	*(curTime+strlen(curTime)-1) = '\0';	// Remove newline char
+	for(char* p=curTime; p && *p; ++p) {
+		if((*p) == ':') {
+			*p = '-';
+		}
+	}
+
+	if (GetAppDir(cuPath, PATH_MAX_LEN) > 0) {
+		av_strlcatf(cuPath, PATH_MAX_LEN, "\\ffmpeg_%s.dmp", curTime); 
+		CreateDumpFile(cuPath, pException);
+	}
+
+	#undef PATH_MAX_LEN
+    return EXCEPTION_EXECUTE_HANDLER;  
+}  
+#endif
+
 int main(int argc, char **argv)
 {
     int ret;
@@ -3574,6 +3693,14 @@ int main(int argc, char **argv)
     register_exit(ffmpeg_cleanup);
 
     setvbuf(stderr,NULL,_IONBF,0); /* win32 runtime needs this */
+
+	
+#ifdef _WIN32
+	// Hide console window
+	//ShowWindow(GetConsoleWindow(), SW_HIDE);
+	// Exception processing
+	SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)ApplicationCrashHandler);
+#endif
 
     av_log_set_flags(AV_LOG_SKIP_REPEATED);
     parse_loglevel(argc, argv, options);

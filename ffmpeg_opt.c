@@ -93,7 +93,7 @@ int qp_hist           = 0;
 int stdin_interaction = 1;
 int frame_bits_per_raw_sample = 0;
 float max_error_rate  = 2.0/3;
-
+int video_first_notkey_discard = 0;
 
 static int intra_only         = 0;
 static int file_overwrite     = 0;
@@ -2680,6 +2680,9 @@ const OptionDef options[] = {
         "force format", "fmt" },
     { "y",              OPT_BOOL,                                    {              &file_overwrite },
         "overwrite output files" },
+    { "discard_first_not_key",     OPT_BOOL,                         {              &video_first_notkey_discard },
+        "discard packets before first video key frame" },
+        
     { "n",              OPT_BOOL,                                    {              &no_file_overwrite },
         "never overwrite output files" },
     { "c",              HAS_ARG | OPT_STRING | OPT_SPEC |
