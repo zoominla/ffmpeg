@@ -478,6 +478,7 @@ static int compute_pkt_fields2(AVFormatContext *s, AVStream *st, AVPacket *pkt)
     if (st->cur_dts && st->cur_dts != AV_NOPTS_VALUE &&
         ((!(s->oformat->flags & AVFMT_TS_NONSTRICT) &&
           st->cur_dts >= pkt->dts) || st->cur_dts > pkt->dts)) {
+          av_set_dts_non_mono_err(1);
         av_log(s, AV_LOG_ERROR,
                "Application provided invalid, non monotonically increasing dts to muxer in stream %d: %s >= %s\n",
                st->index, av_ts2str(st->cur_dts), av_ts2str(pkt->dts));

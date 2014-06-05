@@ -40,6 +40,8 @@
 
 #include <float.h>
 
+int has_non_mono_increase_error = 0;
+
 #if FF_API_FIND_OPT
 //FIXME order them and do a bin search
 const AVOption *av_find_opt(void *v, const char *name, const char *unit, int mask, int flags)
@@ -1606,6 +1608,17 @@ void av_opt_freep_ranges(AVOptionRanges **rangesp)
     }
     av_freep(&ranges->range);
     av_freep(rangesp);
+}
+
+
+int av_get_dts_non_mono_err()
+{
+	return has_non_mono_increase_error;
+}
+
+void av_set_dts_non_mono_err(int bErr)
+{
+	has_non_mono_increase_error = bErr;
 }
 
 #ifdef TEST
