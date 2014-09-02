@@ -232,7 +232,7 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *buf)
     // out of memory error), limit to 6 seconds
     if(delta > av_q2d(s->framerate)*CONPENSATE_TS_SUDDEN_CHANGE_MAX_DURATION) {	
         delta = 1;
-    }
+    } 
 
     /* can output >= 1 frames */
     for (i = 0; i < delta; i++) {

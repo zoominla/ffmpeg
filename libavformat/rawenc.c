@@ -300,7 +300,7 @@ AVOutputFormat ff_rawvideo_muxer = {
     .audio_codec       = AV_CODEC_ID_NONE,
     .video_codec       = AV_CODEC_ID_RAWVIDEO,
     .write_packet      = ff_raw_write_packet,
-    .flags             = AVFMT_NOTIMESTAMPS,
+    .flags             = AVFMT_NOTIMESTAMPS | AVFMT_TS_NONSTRICT,
 };
 #endif
 

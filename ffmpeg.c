@@ -2307,6 +2307,7 @@ static int transcode_init(void)
             for (j = 0; j < ifile->nb_streams; j++)
                 input_streams[j + ifile->ist_index]->start = av_gettime();
     }
+	
 
     /* output stream init */
     for (i = 0; i < nb_output_files; i++) {
@@ -3128,6 +3129,10 @@ static void reset_eagain(void)
         output_streams[i]->unavailable = 0;
 }
 
+
+//static int64_t delta_abs;
+//static int vibrate_count;
+
 /*
  * Return
  * - 0 -- one packet was read and processed
@@ -3312,6 +3317,52 @@ static int process_input(int file_index)
                 (delta > 1LL*dts_delta_threshold*AV_TIME_BASE &&
                  ist->st->codec->codec_type != AVMEDIA_TYPE_SUBTITLE) ||
                 pkt_dts + AV_TIME_BASE/10 < FFMAX(ist->pts, ist->dts)) {
+
+
+				/*
+				int64_t deltaCompare = delta_abs + delta;
+				if(deltaCompare <= (delta_abs*2 + av_rescale_q(pkt.duration, ist->st->time_base, AV_TIME_BASE_Q)) &&
+				  deltaCompare >= (delta_abs*2 - av_rescale_q(pkt.duration, ist->st->time_base, AV_TIME_BASE_Q))) {
+				  if(vibrate_count < 0) {  //+-+-+-+, 上次delta需要是负才会判断为无限抖动
+					 vibrate_count = 1 + abs(vibrate_count);
+				  }
+				  else { //否则所有变量清零
+					 delta_abs = 0;
+					 vibrate_count = 0;
+				  }
+				}
+				else if(deltaCompare <= av_rescale_q(pkt.duration, ist->st->time_base, AV_TIME_BASE_Q) &&
+					 deltaCompare >= -av_rescale_q(pkt.duration, ist->st->time_base, AV_TIME_BASE_Q)) {
+				  if(vibrate_count > 0) {
+					 vibrate_count = -1 - abs(vibrate_count);
+				  }
+				  else {
+					 delta_abs = 0;
+					 vibrate_count = 0;
+				  }
+				}
+				else { //此处相当于是delta值的初始
+				  delta_abs = llabs(delta);
+				  if(delta > 0) {
+					 vibrate_count = 1;
+				  }
+				  else {
+					 vibrate_count = -1;
+				  }
+				}
+				if(abs(vibrate_count) > 100) { //累计连续出现相近abs(delta)的次数大于100次，则认为是出现了无限抖动
+				  if(delta>0) { //delta为正才修改当前输入的时间戳，防止时间戳倒退
+					 ist->next_dts = pkt_dts;
+					 ist->next_pts = ist->next_dts;
+					 ist->dts = ist->next_dts;
+					 ist->pts = ist->next_dts;
+					 delta_abs = 0;
+					 vibrate_count = 0;
+					 delta = 0;
+				  }
+				}*/
+
+
                 ifile->ts_offset -= delta;
                 av_log(NULL, AV_LOG_DEBUG,
                        "timestamp discontinuity %"PRId64", new offset= %"PRId64"\n",

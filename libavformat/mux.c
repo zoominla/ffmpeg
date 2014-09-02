@@ -425,6 +425,7 @@ int avformat_write_header(AVFormatContext *s, AVDictionary **options)
    immediate failure if used anywhere as a real size. */
 #define UNCODED_FRAME_PACKET_SIZE (INT_MIN / 3 * 2 + (int)sizeof(AVFrame))
 
+static int nonMonoTsErrCount = 0;
 
 //FIXME merge with compute_pkt_fields
 static int compute_pkt_fields2(AVFormatContext *s, AVStream *st, AVPacket *pkt)
@@ -475,15 +476,21 @@ static int compute_pkt_fields2(AVFormatContext *s, AVStream *st, AVPacket *pkt)
         pkt->dts = st->pts_buffer[0];
     }
 
+	
     if (st->cur_dts && st->cur_dts != AV_NOPTS_VALUE &&
         ((!(s->oformat->flags & AVFMT_TS_NONSTRICT) &&
           st->cur_dts >= pkt->dts) || st->cur_dts > pkt->dts)) {
           av_set_dts_non_mono_err(1);
+		  nonMonoTsErrCount++;
+		  if(nonMonoTsErrCount > 20) {
+		  	return AVERROR(EINVAL);
+		  }
         av_log(s, AV_LOG_ERROR,
                "Application provided invalid, non monotonically increasing dts to muxer in stream %d: %s >= %s\n",
                st->index, av_ts2str(st->cur_dts), av_ts2str(pkt->dts));
         return AVERROR(EINVAL);
     }
+    
     if (pkt->dts != AV_NOPTS_VALUE && pkt->pts != AV_NOPTS_VALUE && pkt->pts < pkt->dts) {
         av_log(s, AV_LOG_ERROR, "pts (%s) < dts (%s) in stream %d\n",
                av_ts2str(pkt->pts), av_ts2str(pkt->dts), st->index);

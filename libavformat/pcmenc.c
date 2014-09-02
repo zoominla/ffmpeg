@@ -30,7 +30,7 @@ AVOutputFormat ff_pcm_ ## name_ ## _muxer = {               \
     .audio_codec  = codec,                                  \
     .video_codec  = AV_CODEC_ID_NONE,                          \
     .write_packet = ff_raw_write_packet,                    \
-    .flags        = AVFMT_NOTIMESTAMPS,                     \
+    .flags        = AVFMT_NOTIMESTAMPS | AVFMT_TS_NONSTRICT, \
 };
 
 PCMDEF(f64be, "PCM 64-bit floating-point big-endian",
