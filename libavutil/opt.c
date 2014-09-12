@@ -318,6 +318,7 @@ static int set_string_fmt(void *obj, const AVOption *o, const char *val, uint8_t
         if (fmt == -1) {
             char *tail;
             fmt = strtol(val, &tail, 0);
+			
             if (*tail || (unsigned)fmt >= fmt_nb) {
                 av_log(obj, AV_LOG_ERROR,
                        "Unable to parse option value \"%s\" as %s\n", val, desc);
@@ -348,7 +349,10 @@ static int set_string_fmt(void *obj, const AVOption *o, const char *val, uint8_t
 
 static int set_string_pixel_fmt(void *obj, const AVOption *o, const char *val, uint8_t *dst)
 {
-    return set_string_fmt(obj, o, val, dst,
+	if(!strcmp(val, "-1")) {
+		val = "yuv420p";
+	}
+	return set_string_fmt(obj, o, val, dst,
                           AV_PIX_FMT_NB, av_get_pix_fmt, "pixel format");
 }
 
