@@ -852,7 +852,7 @@ static void do_video_out(AVFormatContext *s,
 
     sync_ipts = in_picture->pts;
     delta = sync_ipts - ost->sync_opts + duration;
-
+	
     /* by default, we output a single frame */
     nb_frames = 1;
 
@@ -901,6 +901,9 @@ static void do_video_out(AVFormatContext *s,
         av_assert0(0);
     }
 
+	if(av_has_non_mono_timestamp_error && nb_frames > 1) {
+		nb_frames = 1;
+	}
     nb_frames = FFMIN(nb_frames, ost->max_frames - ost->frame_number - total_ignore_dup_frames_num);
     if (nb_frames == 0) {
         nb_frames_drop++;
@@ -920,7 +923,7 @@ static void do_video_out(AVFormatContext *s,
 			nb_frames = 1;
 		}
         nb_frames_dup += nb_frames - 1;
-        av_log(NULL, AV_LOG_VERBOSE, "*** %d dup!\n", nb_frames - 1);
+        av_log(NULL, AV_LOG_ERROR, "******** %d dup!\n", nb_frames - 1);
     }
 
   /* duplicates frame if needed */
@@ -1182,6 +1185,7 @@ static int reap_filters(void)
                 break;
             case AVMEDIA_TYPE_AUDIO:
                 filtered_frame->pts = frame_pts;
+				//av_log(NULL, AV_LOG_ERROR, "====frame_pts:%d\n", frame_pts);
                 if (!(enc->codec->capabilities & CODEC_CAP_PARAM_CHANGE) &&
                     enc->channels != av_frame_get_channels(filtered_frame)) {
                     av_log(NULL, AV_LOG_ERROR,
@@ -1815,7 +1819,7 @@ static int decode_video(InputStream *ist, AVPacket *pkt, int *got_output)
                decoded_frame->key_frame, decoded_frame->pict_type,
                ist->st->time_base.num, ist->st->time_base.den);
     }
-
+	
     pkt->size = 0;
 
     if (ist->st->sample_aspect_ratio.num)

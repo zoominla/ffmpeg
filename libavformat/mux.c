@@ -426,6 +426,7 @@ int avformat_write_header(AVFormatContext *s, AVDictionary **options)
 #define UNCODED_FRAME_PACKET_SIZE (INT_MIN / 3 * 2 + (int)sizeof(AVFrame))
 
 static int nonMonoTsErrCount = 0;
+int av_has_non_mono_timestamp_error = 0;
 
 //FIXME merge with compute_pkt_fields
 static int compute_pkt_fields2(AVFormatContext *s, AVStream *st, AVPacket *pkt)
@@ -481,13 +482,18 @@ static int compute_pkt_fields2(AVFormatContext *s, AVStream *st, AVPacket *pkt)
         ((!(s->oformat->flags & AVFMT_TS_NONSTRICT) &&
           st->cur_dts >= pkt->dts) || st->cur_dts > pkt->dts)) {
           av_set_dts_non_mono_err(1);
+		  
 		  nonMonoTsErrCount++;
 		  if(nonMonoTsErrCount > 20) {
 		  	return AVERROR(EINVAL);
 		  }
-        av_log(s, AV_LOG_ERROR,
+		  if(av_has_non_mono_timestamp_error == 0) {
+		  	av_has_non_mono_timestamp_error = 1;
+		  }
+          av_log(s, AV_LOG_ERROR,
                "Application provided invalid, non monotonically increasing dts to muxer in stream %d: %s >= %s\n",
                st->index, av_ts2str(st->cur_dts), av_ts2str(pkt->dts));
+		
         return AVERROR(EINVAL);
     }
     
