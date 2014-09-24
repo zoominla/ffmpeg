@@ -677,6 +677,8 @@ typedef struct H264Context {
 
     int frame_recovered;    ///< Initial frame has been completely recovered
 
+    int has_recovery_point;
+
     int luma_weight_flag[2];    ///< 7.4.3.2 luma_weight_lX_flag
     int chroma_weight_flag[2];  ///< 7.4.3.2 chroma_weight_lX_flag
 
@@ -689,7 +691,7 @@ typedef struct H264Context {
 
     int16_t slice_row[MAX_SLICES]; ///< to detect when MAX_SLICES is too low
 
-    uint8_t parse_history[4];
+    uint8_t parse_history[6];
     int parse_history_count;
     int parse_last_mb;
     uint8_t *edge_emu_buffer;

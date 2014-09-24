@@ -124,7 +124,7 @@ static int mp3_write_xing(AVFormatContext *s)
     int best_bitrate_error = INT_MAX;
     int xing_offset;
     int ver = 0;
-    int bytes_needed, lsf;
+    int bytes_needed;
     const char *vendor = (codec->flags & CODEC_FLAG_BITEXACT) ? "Lavf" : LIBAVFORMAT_IDENT;
 
     if (!s->pb->seekable || !mp3->write_xing)
@@ -161,7 +161,7 @@ static int mp3_write_xing(AVFormatContext *s)
     header |= channels << 6;
 
     for (bitrate_idx = 1; bitrate_idx < 15; bitrate_idx++) {
-        int bit_rate = 1000 * avpriv_mpa_bitrate_tab[lsf][3 - 1][bitrate_idx];
+        int bit_rate = 1000 * avpriv_mpa_bitrate_tab[ver != 3][3 - 1][bitrate_idx];
         int error    = FFABS(bit_rate - codec->bit_rate);
 
         if (error < best_bitrate_error) {
@@ -262,19 +262,19 @@ static int mp3_write_audio_packet(AVFormatContext *s, AVPacket *pkt)
     if (pkt->data && pkt->size >= 4) {
         MPADecodeHeader mpah;
         int av_unused base;
-        uint32_t head = AV_RB32(pkt->data);
+        uint32_t h;
 
-        if (ff_mpa_check_header(head) < 0) {
+        h = AV_RB32(pkt->data);
+        if (ff_mpa_check_header(h) == 0) {
+            avpriv_mpegaudio_decode_header(&mpah, h);
+            if (!mp3->initial_bitrate)
+                mp3->initial_bitrate = mpah.bit_rate;
+            if ((mpah.bit_rate == 0) || (mp3->initial_bitrate != mpah.bit_rate))
+                mp3->has_variable_bitrate = 1;
+        } else {
             av_log(s, AV_LOG_WARNING, "Audio packet of size %d (starting with %08X...) "
-                   "is invalid, writing it anyway.\n", pkt->size, head);
-            return ff_raw_write_packet(s, pkt);
+                   "is invalid, writing it anyway.\n", pkt->size, h);
         }
-        avpriv_mpegaudio_decode_header(&mpah, head);
-
-        if (!mp3->initial_bitrate)
-            mp3->initial_bitrate = mpah.bit_rate;
-        if ((mpah.bit_rate == 0) || (mp3->initial_bitrate != mpah.bit_rate))
-            mp3->has_variable_bitrate = 1;
 
 #ifdef FILTER_VBR_HEADERS
         /* filter out XING and INFO headers. */

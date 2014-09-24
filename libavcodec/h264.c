@@ -634,7 +634,7 @@ const uint8_t *ff_h264_decode_nal(H264Context *h, const uint8_t *src,
 
 #define STARTCODE_TEST                                                  \
     if (i + 2 < length && src[i + 1] == 0 && src[i + 2] <= 3) {         \
-        if (src[i + 2] != 3) {                                          \
+        if (src[i + 2] != 3 && src[i + 2] != 0) {                       \
             /* startcode, so we must be past the end */                 \
             length = i;                                                 \
         }                                                               \
@@ -707,7 +707,7 @@ const uint8_t *ff_h264_decode_nal(H264Context *h, const uint8_t *src,
         if (src[si + 2] > 3) {
             dst[di++] = src[si++];
             dst[di++] = src[si++];
-        } else if (src[si] == 0 && src[si + 1] == 0) {
+        } else if (src[si] == 0 && src[si + 1] == 0 && src[si + 2] != 0) {
             if (src[si + 2] == 3) { // escape
                 dst[di++]  = 0;
                 dst[di++]  = 0;
@@ -2142,10 +2142,10 @@ static void decode_postinit(H264Context *h, int setup_finished)
             stereo->type = AV_STEREO3D_CHECKERBOARD;
             break;
         case 1:
-            stereo->type = AV_STEREO3D_LINES;
+            stereo->type = AV_STEREO3D_COLUMNS;
             break;
         case 2:
-            stereo->type = AV_STEREO3D_COLUMNS;
+            stereo->type = AV_STEREO3D_LINES;
             break;
         case 3:
             if (h->quincunx_subsampling)
@@ -4950,6 +4950,7 @@ again:
                 if(!idr_cleared)
                     idr(h); // FIXME ensure we don't lose some frames if there is reordering
                 idr_cleared = 1;
+                h->has_recovery_point = 1;
             case NAL_SLICE:
                 init_get_bits(&hx->gb, ptr, bit_length);
                 hx->intra_gb_ptr      =

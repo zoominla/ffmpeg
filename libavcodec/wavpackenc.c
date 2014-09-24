@@ -638,7 +638,7 @@ static uint32_t log2sample(uint32_t v, int limit, uint32_t *result)
 
     if ((v += v >> 9) < (1 << 8)) {
         dbits = nbits_table[v];
-        result += (dbits << 8) + wp_log2_table[(v << (9 - dbits)) & 0xff];
+        *result += (dbits << 8) + wp_log2_table[(v << (9 - dbits)) & 0xff];
     } else {
         if (v < (1L << 16))
             dbits = nbits_table[v >> 8] + 8;
@@ -647,7 +647,7 @@ static uint32_t log2sample(uint32_t v, int limit, uint32_t *result)
         else
             dbits = nbits_table[v >> 24] + 24;
 
-        result += dbits = (dbits << 8) + wp_log2_table[(v >> (dbits - 9)) & 0xff];
+        *result += dbits = (dbits << 8) + wp_log2_table[(v >> (dbits - 9)) & 0xff];
 
         if (limit && dbits >= limit)
             return 1;
@@ -2876,10 +2876,11 @@ static int wavpack_encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
             return AVERROR(ENOMEM);
     }
 
-    if ((ret = ff_alloc_packet2(avctx, avpkt, s->block_samples * avctx->channels * 8)) < 0)
+    buf_size = s->block_samples * avctx->channels * 8
+             + 200 /* for headers */;
+    if ((ret = ff_alloc_packet2(avctx, avpkt, buf_size)) < 0)
         return ret;
     buf = avpkt->data;
-    buf_size = avpkt->size;
 
     for (s->ch_offset = 0; s->ch_offset < avctx->channels;) {
         set_samplerate(s);
