@@ -1428,6 +1428,12 @@ int av_opt_set_dict(void *obj, AVDictionary **options)
     int ret = 0;
 
     while ((t = av_dict_get(*options, "", t, AV_DICT_IGNORE_SUFFIX))) {
+		// Work around to fix pixel_aspect error in the source file.
+		if(t->key && t->value) {
+			if(!stricmp(t->key, "pixel_aspect") && !stricmp(t->value, "-1/1")) {
+				strcpy(t->value, "1/1");
+			}
+		}
         ret = av_opt_set(obj, t->key, t->value, 0);
         if (ret == AVERROR_OPTION_NOT_FOUND)
             av_dict_set(&tmp, t->key, t->value, 0);
