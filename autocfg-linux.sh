@@ -58,7 +58,6 @@ _config_transcli="configure \
   --enable-runtime-cpudetect \
   --enable-libass \
   --enable-libfreetype \
-  --disable-devices \
   --disable-doc \
   --disable-shared \
   --disable-ffserver \
