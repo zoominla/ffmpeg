@@ -3230,12 +3230,12 @@ static int process_input(int file_index)
 	if(video_first_notkey_discard) {
 		if(ist->st->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
 			// First judge from packet key flag
-			if(!saw_first_key_packet && (pkt.flags & AV_PKT_FLAG_KEY)) {
+			/*if(!saw_first_key_packet && (pkt.flags & AV_PKT_FLAG_KEY)) {
 				saw_first_key_packet = 1;
 			}
 			if(!saw_first_key_packet) {
 				goto discard_packet;
-			}
+			}*/
 
 			// Second judge from frame  type
 			//saw_first_video_key_frame = 1;		// Temp workaround for ts copy

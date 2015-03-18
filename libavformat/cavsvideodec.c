@@ -28,6 +28,10 @@
 #define CAVS_PIC_PB_START_CODE    0x000001b6
 #define CAVS_VIDEO_EDIT_CODE      0x000001b7
 #define CAVS_PROFILE_JIZHUN       0x20
+#define CAVS_PROFILE_SHENZHAN     0x24
+#define CAVS_PROFILE_YIDONG       0x34
+#define CAVS_PROFILE_JIAQIANG     0x40
+#define CAVS_PROFILE_GUANGDIAN    0x48
 
 static int cavsvideo_probe(AVProbeData *p)
 {
@@ -49,7 +53,10 @@ static int cavsvideo_probe(AVProbeData *p)
             if (code == CAVS_SEQ_START_CODE) {
                 seq++;
                 /* check for the only currently supported profile */
-                if(p->buf[i+1] != CAVS_PROFILE_JIZHUN)
+				unsigned char pid = p->buf[i+1];
+                if(pid != CAVS_PROFILE_JIZHUN && pid != CAVS_PROFILE_SHENZHAN &&
+				   pid != CAVS_PROFILE_YIDONG && pid != CAVS_PROFILE_JIAQIANG &&
+				   pid != CAVS_PROFILE_GUANGDIAN)
                     return 0;
             } else if ((code == CAVS_PIC_I_START_CODE) ||
                        (code == CAVS_PIC_PB_START_CODE)) {
